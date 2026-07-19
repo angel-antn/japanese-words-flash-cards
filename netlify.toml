@@ -1,0 +1,14 @@
+[build]
+  command = "pnpm build"
+  publish = "dist"
+
+[build.environment]
+  # Vite 8 requires Node 20.19+ / 22.12+
+  NODE_VERSION = "22"
+
+# SPA fallback: serve index.html for any path. The app uses HashRouter so this
+# is mostly a safety net, but it also keeps direct URLs working.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

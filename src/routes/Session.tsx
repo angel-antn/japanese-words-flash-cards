@@ -1,6 +1,6 @@
 import { startTransition } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { X } from 'lucide-react'
+import { Volume2, X } from 'lucide-react'
 
 import { useFlashcards } from '@/context/FlashcardsContext'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import FlashcardView from '@/components/FlashcardView'
 import ChoiceView from '@/components/ChoiceView'
 import TypingView from '@/components/TypingView'
 import SessionSummary from '@/components/SessionSummary'
+import { canSpeak, speak } from '@/lib/speech'
 
 export default function Session() {
   const { session, getLevelMeta, getWords, recordAnswer, restartSession, endSession } =
@@ -58,6 +59,16 @@ export default function Session() {
         <span className="text-muted-foreground text-sm tabular-nums">
           {current}/{total}
         </span>
+        {canSpeak && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => speak(word.word)}
+            aria-label="Escuchar pronunciación"
+          >
+            <Volume2 className="size-4" />
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="icon"

@@ -10,6 +10,7 @@ import {
   Search,
   Flame,
   CalendarCheck,
+  Volume2,
   SlidersHorizontal,
   RotateCcw,
   Square,
@@ -28,6 +29,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { categoryColor } from '@/lib/categories'
 import { isDue } from '@/lib/srs'
+import { canSpeak, speak } from '@/lib/speech'
 import { cn } from '@/lib/utils'
 
 const CHIP =
@@ -413,6 +415,20 @@ export default function LevelDetail() {
                     {word.meaning}
                   </p>
                 </div>
+                {canSpeak && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground size-8"
+                    aria-label={`Escuchar ${word.word}`}
+                    onClick={(e) => {
+                      e.preventDefault() // don't toggle the checkbox
+                      speak(word.word)
+                    }}
+                  >
+                    <Volume2 className="size-4" />
+                  </Button>
+                )}
                 <Badge
                   className={colorOf(word.category)}
                   variant="outline"

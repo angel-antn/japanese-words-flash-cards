@@ -8,6 +8,7 @@ import {
   Loader2,
   Play,
   Search,
+  Flame,
   SlidersHorizontal,
   RotateCcw,
   Square,
@@ -156,6 +157,21 @@ export default function LevelDetail() {
     navigate('/session')
   }
 
+  // Words failed at least once; ignores selection so weak spots never hide.
+  const failedIds = words
+    .filter((w) => statOf(level.id, w.id).wrong > 0)
+    .map((w) => w.id)
+  const handlePlayFailed = () => {
+    startSession({
+      levelId: level.id,
+      size: 'all',
+      orientation,
+      mode,
+      wordIds: failedIds,
+    })
+    navigate('/session')
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
@@ -231,6 +247,16 @@ export default function LevelDetail() {
             <Play className="size-4" />
             Jugar ({selectedCount} seleccionadas)
           </Button>
+          {failedIds.length > 0 && (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handlePlayFailed}
+            >
+              <Flame className="size-4" />
+              Practicar las que fallo ({failedIds.length})
+            </Button>
+          )}
         </CardContent>
       </Card>
 

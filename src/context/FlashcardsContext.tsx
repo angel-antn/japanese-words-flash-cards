@@ -42,6 +42,8 @@ export type StartSessionOptions = {
   size: SessionSize
   orientation: Orientation
   mode: StudyMode
+  /** Explicit word ids to play instead of the persisted selection. */
+  wordIds?: number[]
 }
 
 const STATS_KEY = 'jf.stats'
@@ -271,9 +273,9 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
     (opts: StartSessionOptions) => {
       const words = wordsByLevel[opts.levelId] ?? []
       if (words.length === 0) return
-      const selectedIds = new Set(selection[opts.levelId] ?? [])
+      const pool = new Set(opts.wordIds ?? selection[opts.levelId] ?? [])
       const selected = shuffle(
-        words.filter((w) => selectedIds.has(w.id)).map((w) => w.id)
+        words.filter((w) => pool.has(w.id)).map((w) => w.id)
       )
       const queue =
         opts.size === 'all' ? selected : selected.slice(0, opts.size)

@@ -232,8 +232,8 @@ export default function LevelDetail() {
               onValueChange={(v) => v && setMode(v as StudyMode)}
             >
               <ToggleGroupItem value="flashcard">Flashcard</ToggleGroupItem>
-              <ToggleGroupItem value="choice">Selección simple</ToggleGroupItem>
-              <ToggleGroupItem value="typing">Escritura</ToggleGroupItem>
+              <ToggleGroupItem value="choice">Elegir</ToggleGroupItem>
+              <ToggleGroupItem value="typing">Escribir</ToggleGroupItem>
             </ToggleGroup>
           </div>
 
@@ -246,12 +246,8 @@ export default function LevelDetail() {
               disabled={mode === 'typing'}
               onValueChange={(v) => v && setOrientation(v as Orientation)}
             >
-              <ToggleGroupItem value="jp-meaning">
-                日本語 → Significado
-              </ToggleGroupItem>
-              <ToggleGroupItem value="meaning-jp">
-                Significado → 日本語
-              </ToggleGroupItem>
+              <ToggleGroupItem value="jp-meaning">日本語 → Español</ToggleGroupItem>
+              <ToggleGroupItem value="meaning-jp">Español → 日本語</ToggleGroupItem>
             </ToggleGroup>
           </div>
 

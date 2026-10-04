@@ -4,6 +4,7 @@ import { Check, X } from 'lucide-react'
 import type { Word } from '@/data/types'
 import type { Orientation } from '@/context/FlashcardsContext'
 import { cn } from '@/lib/utils'
+import FitText from '@/components/FitText'
 
 // Deterministic PRNG so the options stay stable across re-renders.
 function mulberry32(seed: number) {
@@ -83,7 +84,7 @@ export default function ChoiceView({
       <div className="bg-card text-card-foreground flex min-h-40 w-full flex-col items-center justify-center gap-2 rounded-xl border p-6 text-center">
         {isJpQuestion ? (
           <>
-            <span className="text-4xl font-bold sm:text-5xl">{word.word}</span>
+            <FitText className="text-4xl font-bold sm:text-5xl">{word.word}</FitText>
             {word.kanji && (
               <span className="text-muted-foreground text-xl">
                 {word.kanji}

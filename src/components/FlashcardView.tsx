@@ -5,11 +5,12 @@ import { Check, RotateCw, X } from 'lucide-react'
 import type { Word } from '@/data/types'
 import type { Orientation } from '@/context/FlashcardsContext'
 import { Button } from '@/components/ui/button'
+import FitText from '@/components/FitText'
 
 function JapaneseFace({ word }: { word: Word }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
-      <span className="text-4xl font-bold sm:text-5xl">{word.word}</span>
+    <div className="flex h-full w-full min-w-0 flex-col items-center justify-center gap-2 p-6 text-center">
+      <FitText className="text-4xl font-bold sm:text-5xl">{word.word}</FitText>
       {word.kanji && (
         <span className="text-muted-foreground text-xl">{word.kanji}</span>
       )}
@@ -19,7 +20,7 @@ function JapaneseFace({ word }: { word: Word }) {
 
 function MeaningFace({ word }: { word: Word }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
+    <div className="flex h-full w-full min-w-0 flex-col items-center justify-center gap-2 p-6 text-center">
       <span className="text-2xl font-semibold sm:text-3xl">{word.meaning}</span>
     </div>
   )

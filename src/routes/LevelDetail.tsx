@@ -435,50 +435,49 @@ export default function LevelDetail() {
                   onCheckedChange={() => toggleWord(level.id, word.id)}
                 />
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-2">
+                  <div className="flex items-center gap-1">
                     <span className="text-lg font-medium">{word.word}</span>
-                    {word.kanji && (
-                      <span className="text-muted-foreground text-sm">
-                        {word.kanji}
-                      </span>
+                    {canSpeak && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground size-6"
+                        aria-label={`Escuchar ${word.word}`}
+                        onClick={(e) => {
+                          e.preventDefault() // don't toggle the checkbox
+                          speak(word.word)
+                        }}
+                      >
+                        <Volume2 className="size-3.5" />
+                      </Button>
                     )}
                   </div>
-                  <p className="text-muted-foreground truncate text-sm">
-                    {word.meaning}
+                  <p className="text-muted-foreground flex gap-2 text-sm">
+                    {word.kanji && <span className="shrink-0">{word.kanji}</span>}
+                    <span className="truncate">{word.meaning}</span>
                   </p>
                 </div>
-                {canSpeak && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground size-8"
-                    aria-label={`Escuchar ${word.word}`}
-                    onClick={(e) => {
-                      e.preventDefault() // don't toggle the checkbox
-                      speak(word.word)
-                    }}
-                  >
-                    <Volume2 className="size-4" />
-                  </Button>
-                )}
-                <Badge
-                  className={colorOf(word.category)}
-                  variant="outline"
-                >
-                  {cap(word.category)}
-                </Badge>
-                {stat.seen > 0 && (
+                <div className="flex shrink-0 flex-col items-end justify-center gap-1">
                   <Badge
-                    variant={rate >= 40 ? 'destructive' : 'secondary'}
-                    title={`${stat.wrong} fallos de ${stat.seen} veces · caja ${stat.box ?? 0}`}
+                    className={`${colorOf(word.category)} px-1.5 py-0 text-[11px]`}
+                    variant="outline"
                   >
-                    {stat.wrong}/{stat.seen}
-                    <span aria-hidden className="ml-1 tracking-tighter opacity-70">
-                      {'●'.repeat(stat.box ?? 0)}
-                      {'○'.repeat(4 - (stat.box ?? 0))}
-                    </span>
+                    {cap(word.category)}
                   </Badge>
-                )}
+                  {stat.seen > 0 && (
+                    <Badge
+                      className="px-1.5 py-0 text-[11px]"
+                      variant={rate >= 40 ? 'destructive' : 'secondary'}
+                      title={`${stat.wrong} fallos de ${stat.seen} veces · caja ${stat.box ?? 0}`}
+                    >
+                      {stat.wrong}/{stat.seen}
+                      <span aria-hidden className="ml-1 tracking-tighter opacity-70">
+                        {'●'.repeat(stat.box ?? 0)}
+                        {'○'.repeat(4 - (stat.box ?? 0))}
+                      </span>
+                    </Badge>
+                  )}
+                </div>
               </label>
             </li>
           )

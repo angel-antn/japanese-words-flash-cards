@@ -1,6 +1,13 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertCircle, ChevronRight, Loader2, RotateCcw, Trash2 } from 'lucide-react'
+import {
+  AlertCircle,
+  ChevronRight,
+  Flame,
+  Loader2,
+  RotateCcw,
+  Trash2,
+} from 'lucide-react'
 
 import { useFlashcards } from '@/context/FlashcardsContext'
 import { isDue } from '@/lib/srs'
@@ -32,6 +39,8 @@ export default function LevelList() {
     getWords,
     getSelectedIds,
     statOf,
+    masteredCount,
+    streak,
     clearLocalData,
   } = useFlashcards()
   const [open, setOpen] = useState(false)
@@ -47,6 +56,12 @@ export default function LevelList() {
         </div>
         {levelsLoading && (
           <Loader2 className="text-muted-foreground size-4 animate-spin" />
+        )}
+        {streak > 0 && (
+          <Badge variant="secondary" className="ml-auto gap-1 text-sm">
+            <Flame className="size-4 text-orange-500" />
+            {streak} {streak === 1 ? 'día' : 'días'} seguidos
+          </Badge>
         )}
       </div>
 
@@ -71,6 +86,7 @@ export default function LevelList() {
             const due = selectedIds.filter((id) =>
               isDue(statOf(level.id, id))
             ).length
+            const mastered = masteredCount(level.id)
             const soon = !level.url
             const card = (
               <Card
@@ -95,6 +111,9 @@ export default function LevelList() {
                   )}
                   {selected > 0 && (
                     <Badge variant="outline">{selected} seleccionadas</Badge>
+                  )}
+                  {mastered > 0 && (
+                    <Badge variant="success">{mastered} dominadas</Badge>
                   )}
                   {due > 0 && <Badge>{due} para repasar</Badge>}
                 </CardContent>

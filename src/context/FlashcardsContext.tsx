@@ -50,6 +50,22 @@ export type StartSessionOptions = {
 
 const STATS_KEY = 'jf.stats'
 const SELECTION_KEY = 'jf.selection'
+const DAYS_KEY = 'jf.days'
+
+const today = () => new Date().toISOString().slice(0, 10)
+
+/** Consecutive practice days ending today or yesterday. */
+function streakOf(days: string[]) {
+  const set = new Set(days)
+  const d = new Date()
+  if (!set.has(today())) d.setDate(d.getDate() - 1)
+  let n = 0
+  while (set.has(d.toISOString().slice(0, 10))) {
+    n++
+    d.setDate(d.getDate() - 1)
+  }
+  return n
+}
 
 function statKey(levelId: string, wordId: number) {
   return `${levelId}:${wordId}`
@@ -92,6 +108,9 @@ type FlashcardsContextValue = {
   deselectAll: (levelId: string, wordIds: number[]) => void
   // stats
   statOf: (levelId: string, wordId: number) => WordStat
+  /** Words in Leitner box 3 or higher. */
+  masteredCount: (levelId: string) => number
+  streak: number
   // session
   session: Session | null
   startSession: (opts: StartSessionOptions) => void
@@ -111,6 +130,7 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
   const [selection, setSelection] = useState<Selection>(() =>
     loadJSON(SELECTION_KEY, {})
   )
+  const [days, setDays] = useState<string[]>(() => loadJSON(DAYS_KEY, []))
   const [session, setSession] = useState<Session | null>(null)
   const [lastOptions, setLastOptions] = useState<StartSessionOptions | null>(
     null
@@ -152,6 +172,14 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
       /* ignore quota errors */
     }
   }, [selection])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DAYS_KEY, JSON.stringify(days))
+    } catch {
+      /* ignore quota errors */
+    }
+  }, [days])
 
   // Retry entry point for the UI (event handler — safe to set state here).
   const reloadLevels = useCallback(() => {
@@ -271,6 +299,15 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
     [stats]
   )
 
+  const masteredCount = useCallback(
+    (levelId: string) =>
+      Object.entries(stats).filter(
+        ([k, st]) => k.startsWith(`${levelId}:`) && (st.box ?? 0) >= 3
+      ).length,
+    [stats]
+  )
+  const streak = useMemo(() => streakOf(days), [days])
+
   const startSession = useCallback(
     (opts: StartSessionOptions) => {
       const words = wordsByLevel[opts.levelId] ?? []
@@ -303,6 +340,8 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
       if (!prev || prev.finished) return prev
       const wordId = prev.queue[prev.index]
       const key = statKey(prev.levelId, wordId)
+
+      setDays((d) => (d.includes(today()) ? d : [...d, today()]))
 
       setStats((s) => {
         const cur = s[key] ?? EMPTY_STAT
@@ -346,11 +385,13 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.removeItem(STATS_KEY)
       localStorage.removeItem(SELECTION_KEY)
+      localStorage.removeItem(DAYS_KEY)
     } catch {
       /* ignore */
     }
     setStats({})
     setSelection({})
+    setDays([])
     setSession(null)
   }, [])
 
@@ -370,6 +411,8 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
       selectAll,
       deselectAll,
       statOf,
+      masteredCount,
+      streak,
       session,
       startSession,
       recordAnswer,
@@ -392,6 +435,8 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
       selectAll,
       deselectAll,
       statOf,
+      masteredCount,
+      streak,
       session,
       startSession,
       recordAnswer,

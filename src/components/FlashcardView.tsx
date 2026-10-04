@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Flashcard, useFlashcard } from 'react-quizlet-flashcard'
 import { Check, RotateCw, X } from 'lucide-react'
 
@@ -47,6 +48,20 @@ export default function FlashcardView({
   )
 
   const revealed = flip.state === 'back'
+
+  // Space flips; ← wrong, → right once revealed.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return
+      if (e.key === ' ') {
+        e.preventDefault()
+        if (!revealed) flip.flip()
+      } else if (revealed && e.key === 'ArrowRight') onAnswer(true)
+      else if (revealed && e.key === 'ArrowLeft') onAnswer(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [revealed, flip, onAnswer])
 
   return (
     <div className="flex flex-col items-center gap-6">
@@ -105,6 +120,7 @@ export default function FlashcardView({
       )}
       <p className="text-muted-foreground text-sm">
         Toca la tarjeta o pulsa «Voltear» para ver la respuesta.
+        <span className="hidden sm:inline"> Teclado: espacio, ← fallé, → acerté.</span>
       </p>
     </div>
   )

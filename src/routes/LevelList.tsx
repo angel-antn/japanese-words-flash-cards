@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { AlertCircle, ChevronRight, Loader2, RotateCcw, Trash2 } from 'lucide-react'
 
 import { useFlashcards } from '@/context/FlashcardsContext'
+import { isDue } from '@/lib/srs'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -30,6 +31,7 @@ export default function LevelList() {
     reloadLevels,
     getWords,
     getSelectedIds,
+    statOf,
     clearLocalData,
   } = useFlashcards()
   const [open, setOpen] = useState(false)
@@ -64,7 +66,11 @@ export default function LevelList() {
         <div className="grid gap-4 sm:grid-cols-2">
           {levels.map((level) => {
             const count = getWords(level.id).length
-            const selected = getSelectedIds(level.id).length
+            const selectedIds = getSelectedIds(level.id)
+            const selected = selectedIds.length
+            const due = selectedIds.filter((id) =>
+              isDue(statOf(level.id, id))
+            ).length
             const soon = !level.url
             const card = (
               <Card
@@ -90,6 +96,7 @@ export default function LevelList() {
                   {selected > 0 && (
                     <Badge variant="outline">{selected} seleccionadas</Badge>
                   )}
+                  {due > 0 && <Badge>{due} para repasar</Badge>}
                 </CardContent>
               </Card>
             )

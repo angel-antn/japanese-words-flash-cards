@@ -9,6 +9,7 @@ import {
 } from 'react'
 
 import type { LevelMeta, Word } from '@/data/types'
+import { BOX_INTERVALS } from '@/lib/srs'
 import {
   loadLevels,
   loadWords,
@@ -21,7 +22,8 @@ export type StudyMode = 'flashcard' | 'choice'
 export type SessionSize = number | 'all'
 export type WordsStatus = 'idle' | 'loading' | 'error' | 'ready'
 
-export type WordStat = { seen: number; wrong: number }
+/** Leitner box (0-4) and next review time. Missing on legacy stats = box 0, due now. */
+export type WordStat = { seen: number; wrong: number; box?: number; due?: number }
 type Stats = Record<string, WordStat>
 type Selection = Record<string, number[]>
 
@@ -304,11 +306,14 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
 
       setStats((s) => {
         const cur = s[key] ?? EMPTY_STAT
+        const box = correct ? Math.min((cur.box ?? 0) + 1, 4) : 0
         return {
           ...s,
           [key]: {
             seen: cur.seen + 1,
             wrong: cur.wrong + (correct ? 0 : 1),
+            box,
+            due: Date.now() + BOX_INTERVALS[box],
           },
         }
       })

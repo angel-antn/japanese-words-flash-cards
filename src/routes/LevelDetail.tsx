@@ -9,6 +9,7 @@ import {
   Play,
   Search,
   Flame,
+  CalendarCheck,
   SlidersHorizontal,
   RotateCcw,
   Square,
@@ -26,6 +27,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent } from '@/components/ui/card'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { categoryColor } from '@/lib/categories'
+import { isDue } from '@/lib/srs'
 import { cn } from '@/lib/utils'
 
 const CHIP =
@@ -161,6 +163,20 @@ export default function LevelDetail() {
   const failedIds = words
     .filter((w) => statOf(level.id, w.id).wrong > 0)
     .map((w) => w.id)
+  // Selected words whose Leitner review is due (never-seen words count as due).
+  const dueIds = words
+    .filter((w) => isSelected(level.id, w.id) && isDue(statOf(level.id, w.id)))
+    .map((w) => w.id)
+  const handlePlayDue = () => {
+    startSession({
+      levelId: level.id,
+      size: 'all',
+      orientation,
+      mode,
+      wordIds: dueIds,
+    })
+    navigate('/session')
+  }
   const handlePlayFailed = () => {
     startSession({
       levelId: level.id,
@@ -247,6 +263,16 @@ export default function LevelDetail() {
             <Play className="size-4" />
             Jugar ({selectedCount} seleccionadas)
           </Button>
+          {dueIds.length > 0 && (
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={handlePlayDue}
+            >
+              <CalendarCheck className="size-4" />
+              Repaso del día ({dueIds.length})
+            </Button>
+          )}
           {failedIds.length > 0 && (
             <Button
               variant="outline"
@@ -393,9 +419,13 @@ export default function LevelDetail() {
                 {stat.seen > 0 && (
                   <Badge
                     variant={rate >= 40 ? 'destructive' : 'secondary'}
-                    title={`${stat.wrong} fallos de ${stat.seen} veces`}
+                    title={`${stat.wrong} fallos de ${stat.seen} veces · caja ${stat.box ?? 0}`}
                   >
                     {stat.wrong}/{stat.seen}
+                    <span aria-hidden className="ml-1 tracking-tighter opacity-70">
+                      {'●'.repeat(stat.box ?? 0)}
+                      {'○'.repeat(4 - (stat.box ?? 0))}
+                    </span>
                   </Badge>
                 )}
               </label>

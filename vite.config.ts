@@ -22,7 +22,7 @@ export default defineConfig({
       manifest: {
         name: 'Japan Flashcards',
         short_name: 'JP Cards',
-        description: 'Flashcards para estudiar vocabulario japonés (Verbos N5).',
+        description: 'Flashcards para estudiar vocabulario japonés por nivel JLPT.',
         lang: 'es',
         theme_color: '#0f172a',
         background_color: '#0f172a',
@@ -44,7 +44,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         runtimeCaching: [
           {
-            // Topic manifest + word lists loaded from gists at runtime.
+            // Level manifest + word lists loaded from gists at runtime.
             urlPattern: /^https:\/\/gist\.githubusercontent\.com\/.*/i,
             handler: 'NetworkFirst',
             options: {

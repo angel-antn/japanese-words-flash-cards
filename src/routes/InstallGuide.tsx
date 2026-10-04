@@ -86,7 +86,7 @@ export default function InstallGuide() {
         >
           <Link to="/">
             <ArrowLeft className="size-4" />
-            Temas
+            Niveles
           </Link>
         </Button>
         <h1 className="text-2xl font-bold">Instalar la app</h1>

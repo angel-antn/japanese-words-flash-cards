@@ -1,3 +1,4 @@
+import { startTransition } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { X } from 'lucide-react'
 
@@ -9,19 +10,23 @@ import ChoiceView from '@/components/ChoiceView'
 import SessionSummary from '@/components/SessionSummary'
 
 export default function Session() {
-  const { session, getTopicMeta, getWords, recordAnswer, restartSession, endSession } =
+  const { session, getLevelMeta, getWords, recordAnswer, restartSession, endSession } =
     useFlashcards()
   const navigate = useNavigate()
 
   if (!session) return <Navigate to="/" replace />
 
-  const topic = getTopicMeta(session.topicId)
-  const words = getWords(session.topicId)
-  if (!topic || words.length === 0) return <Navigate to="/" replace />
+  const level = getLevelMeta(session.levelId)
+  const words = getWords(session.levelId)
+  if (!level || words.length === 0) return <Navigate to="/" replace />
 
   const exit = () => {
-    endSession()
-    navigate(`/topic/${session.topicId}`)
+    // react-router navigates inside a transition; clearing the session in the
+    // same transition keeps the "no session → /" redirect from winning.
+    startTransition(() => {
+      navigate(`/level/${session.levelId}`)
+      endSession()
+    })
   }
 
   if (session.finished) {

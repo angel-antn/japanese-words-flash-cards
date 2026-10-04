@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   AlertCircle,
   ArrowLeft,
   CheckSquare,
+  ChevronDown,
   Loader2,
   Play,
+  Search,
+  SlidersHorizontal,
   RotateCcw,
   Square,
 } from 'lucide-react'
@@ -21,6 +24,19 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent } from '@/components/ui/card'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { categoryColor } from '@/lib/categories'
+import { cn } from '@/lib/utils'
+
+const CHIP =
+  'h-8 rounded-full border px-3 text-sm font-medium transition-all outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50'
+
+const norm = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
 const SIZE_OPTIONS: { value: SessionSize; label: string }[] = [
   { value: 'all', label: 'Todas' },
@@ -30,20 +46,20 @@ const SIZE_OPTIONS: { value: SessionSize; label: string }[] = [
   { value: 100, label: '100' },
 ]
 
-export default function TopicDetail() {
-  const { topicId = '' } = useParams()
+export default function LevelDetail() {
+  const { levelId = '' } = useParams()
   const navigate = useNavigate()
   const {
-    getTopicMeta,
+    getLevelMeta,
     getWords,
     wordsStatusOf,
     ensureWords,
     retryWords,
     isSelected,
+    getSelectedIds,
     toggleWord,
     selectAll,
     deselectAll,
-    getSelectedIds,
     statOf,
     startSession,
   } = useFlashcards()
@@ -51,14 +67,34 @@ export default function TopicDetail() {
   const [size, setSize] = useState<SessionSize>('all')
   const [orientation, setOrientation] = useState<Orientation>('jp-meaning')
   const [mode, setMode] = useState<StudyMode>('flashcard')
+  const [categories, setCategories] = useState<string[]>([])
+  const [query, setQuery] = useState('')
 
   useEffect(() => {
-    ensureWords(topicId)
-  }, [topicId, ensureWords])
+    ensureWords(levelId)
+  }, [levelId, ensureWords])
 
-  const topic = getTopicMeta(topicId)
-  const words = getWords(topicId)
-  const status = wordsStatusOf(topicId)
+  const level = getLevelMeta(levelId)
+  const words = getWords(levelId)
+  const status = wordsStatusOf(levelId)
+
+  // Categories in order of first appearance; index picks the chip color.
+  const allCategories = useMemo(
+    () => [...new Set(words.map((w) => w.category))],
+    [words]
+  )
+  const colorOf = (cat: string) => categoryColor(allCategories.indexOf(cat))
+  const visible = useMemo(() => {
+    const q = norm(query.trim())
+    return words.filter(
+      (w) =>
+        (categories.length === 0 || categories.includes(w.category)) &&
+        (!q ||
+          norm(w.word).includes(q) ||
+          norm(w.meaning).includes(q) ||
+          (w.kanji ?? '').includes(q))
+    )
+  }, [words, categories, query])
 
   const BackButton = (
     <Button
@@ -69,16 +105,16 @@ export default function TopicDetail() {
     >
       <Link to="/">
         <ArrowLeft className="size-4" />
-        Temas
+        Niveles
       </Link>
     </Button>
   )
 
-  if (!topic) {
+  if (!level) {
     return (
       <div className="flex flex-col items-start gap-4">
         {BackButton}
-        <p>Tema no encontrado.</p>
+        <p>Nivel no encontrado.</p>
       </div>
     )
   }
@@ -88,14 +124,14 @@ export default function TopicDetail() {
     return (
       <div className="flex flex-col gap-4">
         {BackButton}
-        <h1 className="text-2xl font-bold">{topic.name}</h1>
+        <h1 className="text-2xl font-bold">{level.name}</h1>
         {status === 'error' ? (
           <div className="flex flex-col items-center gap-3 py-12 text-center">
             <AlertCircle className="text-destructive size-8" />
             <p className="text-muted-foreground text-sm">
               No se pudieron cargar las palabras. Revisa tu conexión.
             </p>
-            <Button variant="outline" onClick={() => retryWords(topicId)}>
+            <Button variant="outline" onClick={() => retryWords(levelId)}>
               <RotateCcw className="size-4" />
               Reintentar
             </Button>
@@ -110,10 +146,13 @@ export default function TopicDetail() {
     )
   }
 
-  const selectedCount = getSelectedIds(topic.id).length
+  // Session plays everything selected; the list header counts only what's visible.
+  const selectedCount = getSelectedIds(level.id).length
+  const visibleSelected = visible.filter((w) => isSelected(level.id, w.id)).length
+  const visibleIds = visible.map((w) => w.id)
 
   const handlePlay = () => {
-    startSession({ topicId: topic.id, size, orientation, mode })
+    startSession({ levelId: level.id, size, orientation, mode })
     navigate('/session')
   }
 
@@ -122,7 +161,7 @@ export default function TopicDetail() {
       <div className="flex flex-col gap-1">
         {BackButton}
         <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold">{topic.name}</h1>
+          <h1 className="text-2xl font-bold">{level.name}</h1>
           {status === 'loading' && (
             <Loader2 className="text-muted-foreground size-4 animate-spin" />
           )}
@@ -195,16 +234,84 @@ export default function TopicDetail() {
         </CardContent>
       </Card>
 
+      {/* Filter */}
+      <details className="group bg-card text-card-foreground rounded-xl border shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center gap-2 px-6 py-4 text-sm font-medium [&::-webkit-details-marker]:hidden">
+          <SlidersHorizontal className="size-4" />
+          Filtro
+          {(categories.length > 0 || query.trim()) && (
+            <Badge variant="secondary">
+              {visible.length} de {words.length}
+            </Badge>
+          )}
+          <ChevronDown className="text-muted-foreground ml-auto size-4 transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="flex flex-col gap-4 px-6 pb-6">
+          <div className="relative">
+            <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar por kana, kanji o significado…"
+              aria-label="Buscar palabra"
+              className="border-input bg-background focus-visible:ring-ring/50 h-9 w-full rounded-md border pr-3 pl-9 text-sm outline-none focus-visible:ring-[3px]"
+            />
+          </div>
+        <div
+          role="group"
+          aria-label="Filtrar por categoría"
+          className="flex flex-wrap gap-1.5"
+        >
+          <button
+            type="button"
+            aria-pressed={categories.length === 0}
+            onClick={() => setCategories([])}
+            className={cn(
+              CHIP,
+              categories.length === 0
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'hover:bg-muted'
+            )}
+          >
+            Todas
+          </button>
+          {allCategories.map((cat) => {
+            const on = categories.includes(cat)
+            return (
+              <button
+                key={cat}
+                type="button"
+                aria-pressed={on}
+                onClick={() =>
+                  setCategories((c) =>
+                    on ? c.filter((x) => x !== cat) : [...c, cat]
+                  )
+                }
+                className={cn(
+                  CHIP,
+                  colorOf(cat),
+                  on ? 'ring-2 ring-foreground/60' : 'opacity-50 hover:opacity-80'
+                )}
+              >
+                {cap(cat)}
+              </button>
+            )
+          })}
+        </div>
+        </div>
+      </details>
+
       {/* Selection controls */}
       <div className="flex items-center justify-between gap-2">
         <span className="text-muted-foreground text-sm">
-          {selectedCount} de {words.length} seleccionadas
+          {visibleSelected} de {visible.length} seleccionadas
         </span>
         <div className="flex gap-2">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => selectAll(topic.id)}
+            onClick={() => selectAll(level.id, visibleIds)}
           >
             <CheckSquare className="size-4" />
             Todas
@@ -212,7 +319,7 @@ export default function TopicDetail() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => deselectAll(topic.id)}
+            onClick={() => deselectAll(level.id, visibleIds)}
           >
             <Square className="size-4" />
             Ninguna
@@ -222,9 +329,9 @@ export default function TopicDetail() {
 
       {/* Word list */}
       <ul className="flex flex-col gap-1.5">
-        {words.map((word) => {
-          const checked = isSelected(topic.id, word.id)
-          const stat = statOf(topic.id, word.id)
+        {visible.map((word) => {
+          const checked = isSelected(level.id, word.id)
+          const stat = statOf(level.id, word.id)
           const rate =
             stat.seen > 0 ? Math.round((stat.wrong / stat.seen) * 100) : 0
           return (
@@ -236,7 +343,7 @@ export default function TopicDetail() {
               >
                 <Checkbox
                   checked={checked}
-                  onCheckedChange={() => toggleWord(topic.id, word.id)}
+                  onCheckedChange={() => toggleWord(level.id, word.id)}
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
@@ -251,6 +358,12 @@ export default function TopicDetail() {
                     {word.meaning}
                   </p>
                 </div>
+                <Badge
+                  className={colorOf(word.category)}
+                  variant="outline"
+                >
+                  {cap(word.category)}
+                </Badge>
                 {stat.seen > 0 && (
                   <Badge
                     variant={rate >= 40 ? 'destructive' : 'secondary'}

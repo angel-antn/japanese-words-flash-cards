@@ -2,8 +2,8 @@ import { Link, Route, Routes } from 'react-router-dom'
 import { Download, Sparkles } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import TopicList from '@/routes/TopicList'
-import TopicDetail from '@/routes/TopicDetail'
+import LevelList from '@/routes/LevelList'
+import LevelDetail from '@/routes/LevelDetail'
 import Session from '@/routes/Session'
 import InstallGuide from '@/routes/InstallGuide'
 
@@ -28,8 +28,8 @@ function App() {
       </header>
       <main className="mx-auto w-full max-w-3xl px-4 py-6">
         <Routes>
-          <Route path="/" element={<TopicList />} />
-          <Route path="/topic/:topicId" element={<TopicDetail />} />
+          <Route path="/" element={<LevelList />} />
+          <Route path="/level/:levelId" element={<LevelDetail />} />
           <Route path="/session" element={<Session />} />
           <Route path="/install" element={<InstallGuide />} />
         </Routes>

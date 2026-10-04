@@ -1,4 +1,4 @@
-import type { TopicMeta, Word } from './types'
+import type { LevelMeta, Word } from './types'
 import { MANIFEST_URL } from './manifest'
 
 /**
@@ -46,15 +46,15 @@ async function fetchJson<T>(url: string): Promise<T> {
   return JSON.parse(text) as T
 }
 
-function validateManifest(data: unknown): TopicMeta[] {
+function validateManifest(data: unknown): LevelMeta[] {
   if (!Array.isArray(data)) return []
   return data.filter(
-    (t): t is TopicMeta =>
+    (t): t is LevelMeta =>
       !!t &&
       typeof t === 'object' &&
-      typeof (t as TopicMeta).id === 'string' &&
-      typeof (t as TopicMeta).name === 'string' &&
-      typeof (t as TopicMeta).url === 'string'
+      typeof (t as LevelMeta).id === 'string' &&
+      typeof (t as LevelMeta).name === 'string' &&
+      typeof (t as LevelMeta).url === 'string'
   )
 }
 
@@ -69,24 +69,34 @@ function validateWords(data: unknown): Word[] {
     const id = typeof w.id === 'number' ? w.id : Number(w.id)
     if (!word || !meaning || Number.isNaN(id)) continue
     const kanjiRaw = typeof w.kanji === 'string' ? w.kanji.trim() : ''
-    out.push({ id, word, meaning, kanji: kanjiRaw === '' ? null : kanjiRaw })
+    const category =
+      typeof w.category === 'string' && w.category.trim()
+        ? w.category.trim()
+        : 'variados'
+    out.push({
+      id,
+      word,
+      meaning,
+      kanji: kanjiRaw === '' ? null : kanjiRaw,
+      category,
+    })
   }
   return out
 }
 
-export async function loadTopics(): Promise<TopicMeta[]> {
+export async function loadLevels(): Promise<LevelMeta[]> {
   try {
-    const topics = validateManifest(await fetchJson(MANIFEST_URL))
-    if (topics.length === 0) throw new Error('Empty manifest')
-    writeCache(MANIFEST_URL, topics)
-    return topics
+    const levels = validateManifest(await fetchJson(MANIFEST_URL))
+    if (levels.length === 0) throw new Error('Empty manifest')
+    writeCache(MANIFEST_URL, levels)
+    return levels
   } catch {
-    return readCache<TopicMeta[]>(MANIFEST_URL) ?? []
+    return readCache<LevelMeta[]>(MANIFEST_URL) ?? []
   }
 }
 
 /**
- * Loads the words for a topic. Cache key is the normalized raw URL.
+ * Loads the words for a level. Cache key is the normalized raw URL.
  * On network failure falls back to cache; throws only if there is no cache.
  */
 export async function loadWords(url: string): Promise<Word[]> {
@@ -107,6 +117,6 @@ export function readCachedWords(url: string): Word[] | null {
   return readCache<Word[]>(toRawGistUrl(url))
 }
 
-export function readCachedTopics(): TopicMeta[] | null {
-  return readCache<TopicMeta[]>(MANIFEST_URL)
+export function readCachedLevels(): LevelMeta[] | null {
+  return readCache<LevelMeta[]>(MANIFEST_URL)
 }

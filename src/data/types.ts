@@ -3,9 +3,10 @@ export type Word = {
   word: string
   kanji: string | null
   meaning: string
+  category: string
 }
 
-export type TopicMeta = {
+export type LevelMeta = {
   id: string
   name: string
   description: string

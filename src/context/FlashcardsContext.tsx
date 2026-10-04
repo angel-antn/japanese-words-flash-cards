@@ -8,11 +8,11 @@ import {
   type ReactNode,
 } from 'react'
 
-import type { TopicMeta, Word } from '@/data/types'
+import type { LevelMeta, Word } from '@/data/types'
 import {
-  loadTopics,
+  loadLevels,
   loadWords,
-  readCachedTopics,
+  readCachedLevels,
   readCachedWords,
 } from '@/data/remote'
 
@@ -26,7 +26,7 @@ type Stats = Record<string, WordStat>
 type Selection = Record<string, number[]>
 
 export type Session = {
-  topicId: string
+  levelId: string
   mode: StudyMode
   orientation: Orientation
   queue: number[]
@@ -38,7 +38,7 @@ export type Session = {
 }
 
 export type StartSessionOptions = {
-  topicId: string
+  levelId: string
   size: SessionSize
   orientation: Orientation
   mode: StudyMode
@@ -47,8 +47,8 @@ export type StartSessionOptions = {
 const STATS_KEY = 'jf.stats'
 const SELECTION_KEY = 'jf.selection'
 
-function statKey(topicId: string, wordId: number) {
-  return `${topicId}:${wordId}`
+function statKey(levelId: string, wordId: number) {
+  return `${levelId}:${wordId}`
 }
 
 function loadJSON<T>(key: string, fallback: T): T {
@@ -71,23 +71,23 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 type FlashcardsContextValue = {
-  // topics / words (remote)
-  topics: TopicMeta[]
-  topicsLoading: boolean
-  reloadTopics: () => void
-  getTopicMeta: (topicId: string) => TopicMeta | undefined
-  getWords: (topicId: string) => Word[]
-  wordsStatusOf: (topicId: string) => WordsStatus
-  ensureWords: (topicId: string) => void
-  retryWords: (topicId: string) => void
+  // levels / words (remote)
+  levels: LevelMeta[]
+  levelsLoading: boolean
+  reloadLevels: () => void
+  getLevelMeta: (levelId: string) => LevelMeta | undefined
+  getWords: (levelId: string) => Word[]
+  wordsStatusOf: (levelId: string) => WordsStatus
+  ensureWords: (levelId: string) => void
+  retryWords: (levelId: string) => void
   // selection
-  isSelected: (topicId: string, wordId: number) => boolean
-  getSelectedIds: (topicId: string) => number[]
-  toggleWord: (topicId: string, wordId: number) => void
-  selectAll: (topicId: string) => void
-  deselectAll: (topicId: string) => void
+  isSelected: (levelId: string, wordId: number) => boolean
+  getSelectedIds: (levelId: string) => number[]
+  toggleWord: (levelId: string, wordId: number) => void
+  selectAll: (levelId: string, wordIds: number[]) => void
+  deselectAll: (levelId: string, wordIds: number[]) => void
   // stats
-  statOf: (topicId: string, wordId: number) => WordStat
+  statOf: (levelId: string, wordId: number) => WordStat
   // session
   session: Session | null
   startSession: (opts: StartSessionOptions) => void
@@ -112,18 +112,18 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
     null
   )
 
-  const [topics, setTopics] = useState<TopicMeta[]>(
-    () => readCachedTopics() ?? []
+  const [levels, setLevels] = useState<LevelMeta[]>(
+    () => readCachedLevels() ?? []
   )
-  const [topicsLoading, setTopicsLoading] = useState(true)
-  // Prime word lists from cache so counts render instantly offline; each topic
+  const [levelsLoading, setLevelsLoading] = useState(true)
+  // Prime word lists from cache so counts render instantly offline; each level
   // is still revalidated by ensureWords when opened.
-  const [wordsByTopic, setWordsByTopic] = useState<Record<string, Word[]>>(
+  const [wordsByLevel, setWordsByLevel] = useState<Record<string, Word[]>>(
     () => {
       const init: Record<string, Word[]> = {}
-      for (const topic of readCachedTopics() ?? []) {
-        const cached = readCachedWords(topic.url)
-        if (cached) init[topic.id] = cached
+      for (const level of readCachedLevels() ?? []) {
+        const cached = readCachedWords(level.url)
+        if (cached) init[level.id] = cached
       }
       return init
     }
@@ -150,129 +150,128 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
   }, [selection])
 
   // Retry entry point for the UI (event handler — safe to set state here).
-  const reloadTopics = useCallback(() => {
-    setTopicsLoading(true)
-    return loadTopics()
-      .then((t) => setTopics(t))
-      .finally(() => setTopicsLoading(false))
+  const reloadLevels = useCallback(() => {
+    setLevelsLoading(true)
+    return loadLevels()
+      .then((t) => setLevels(t))
+      .finally(() => setLevelsLoading(false))
   }, [])
 
-  // Load the topic manifest on mount (stale-while-revalidate). topicsLoading
+  // Load the level manifest on mount (stale-while-revalidate). levelsLoading
   // already starts true, so we don't set it synchronously in the effect.
   useEffect(() => {
     let alive = true
-    loadTopics()
+    loadLevels()
       .then((t) => {
-        if (alive) setTopics(t)
+        if (alive) setLevels(t)
       })
       .finally(() => {
-        if (alive) setTopicsLoading(false)
+        if (alive) setLevelsLoading(false)
       })
     return () => {
       alive = false
     }
   }, [])
 
-  const getTopicMeta = useCallback(
-    (topicId: string) => topics.find((t) => t.id === topicId),
-    [topics]
+  const getLevelMeta = useCallback(
+    (levelId: string) => levels.find((t) => t.id === levelId),
+    [levels]
   )
 
   const getWords = useCallback(
-    (topicId: string) => wordsByTopic[topicId] ?? [],
-    [wordsByTopic]
+    (levelId: string) => wordsByLevel[levelId] ?? [],
+    [wordsByLevel]
   )
 
   const wordsStatusOf = useCallback(
-    (topicId: string): WordsStatus => wordsStatus[topicId] ?? 'idle',
+    (levelId: string): WordsStatus => wordsStatus[levelId] ?? 'idle',
     [wordsStatus]
   )
 
   const fetchWords = useCallback(
-    (topicId: string) => {
-      const topic = topics.find((t) => t.id === topicId)
-      if (!topic) return
-      setWordsStatus((s) => ({ ...s, [topicId]: 'loading' }))
-      loadWords(topic.url)
+    (levelId: string) => {
+      const level = levels.find((t) => t.id === levelId)
+      if (!level) return
+      setWordsStatus((s) => ({ ...s, [levelId]: 'loading' }))
+      loadWords(level.url)
         .then((words) => {
-          setWordsByTopic((w) => ({ ...w, [topicId]: words }))
-          setWordsStatus((s) => ({ ...s, [topicId]: 'ready' }))
+          setWordsByLevel((w) => ({ ...w, [levelId]: words }))
+          setWordsStatus((s) => ({ ...s, [levelId]: 'ready' }))
         })
         .catch(() => {
           setWordsStatus((s) => ({
             ...s,
             // keep usable if we already have (cached) words
-            [topicId]: (wordsByTopic[topicId]?.length ?? 0) > 0
+            [levelId]: (wordsByLevel[levelId]?.length ?? 0) > 0
               ? 'ready'
               : 'error',
           }))
         })
     },
-    [topics, wordsByTopic]
+    [levels, wordsByLevel]
   )
 
   const ensureWords = useCallback(
-    (topicId: string) => {
-      const status = wordsStatus[topicId] ?? 'idle'
+    (levelId: string) => {
+      const status = wordsStatus[levelId] ?? 'idle'
       if (status === 'loading' || status === 'ready') return
-      fetchWords(topicId)
+      fetchWords(levelId)
     },
     [wordsStatus, fetchWords]
   )
 
   const retryWords = useCallback(
-    (topicId: string) => fetchWords(topicId),
+    (levelId: string) => fetchWords(levelId),
     [fetchWords]
   )
 
   const isSelected = useCallback(
-    (topicId: string, wordId: number) =>
-      (selection[topicId] ?? []).includes(wordId),
+    (levelId: string, wordId: number) =>
+      (selection[levelId] ?? []).includes(wordId),
     [selection]
   )
 
   const getSelectedIds = useCallback(
-    (topicId: string) => selection[topicId] ?? [],
+    (levelId: string) => selection[levelId] ?? [],
     [selection]
   )
 
-  const toggleWord = useCallback((topicId: string, wordId: number) => {
+  const toggleWord = useCallback((levelId: string, wordId: number) => {
     setSelection((prev) => {
-      const current = prev[topicId] ?? []
+      const current = prev[levelId] ?? []
       const next = current.includes(wordId)
         ? current.filter((id) => id !== wordId)
         : [...current, wordId]
-      return { ...prev, [topicId]: next }
+      return { ...prev, [levelId]: next }
     })
   }, [])
 
-  const selectAll = useCallback(
-    (topicId: string) => {
-      const words = wordsByTopic[topicId] ?? []
-      if (words.length === 0) return
-      setSelection((prev) => ({
-        ...prev,
-        [topicId]: words.map((w) => w.id),
-      }))
-    },
-    [wordsByTopic]
-  )
+  const selectAll = useCallback((levelId: string, wordIds: number[]) => {
+    setSelection((prev) => ({
+      ...prev,
+      [levelId]: [...new Set([...(prev[levelId] ?? []), ...wordIds])],
+    }))
+  }, [])
 
-  const deselectAll = useCallback((topicId: string) => {
-    setSelection((prev) => ({ ...prev, [topicId]: [] }))
+  const deselectAll = useCallback((levelId: string, wordIds: number[]) => {
+    const drop = new Set(wordIds)
+    setSelection((prev) => ({
+      ...prev,
+      [levelId]: (prev[levelId] ?? []).filter((id) => !drop.has(id)),
+    }))
   }, [])
 
   const statOf = useCallback(
-    (topicId: string, wordId: number): WordStat =>
-      stats[statKey(topicId, wordId)] ?? EMPTY_STAT,
+    (levelId: string, wordId: number): WordStat =>
+      stats[statKey(levelId, wordId)] ?? EMPTY_STAT,
     [stats]
   )
 
   const startSession = useCallback(
     (opts: StartSessionOptions) => {
-      const words = wordsByTopic[opts.topicId] ?? []
+      const words = wordsByLevel[opts.levelId] ?? []
       if (words.length === 0) return
-      const selectedIds = new Set(selection[opts.topicId] ?? [])
+      const selectedIds = new Set(selection[opts.levelId] ?? [])
       const selected = shuffle(
         words.filter((w) => selectedIds.has(w.id)).map((w) => w.id)
       )
@@ -281,7 +280,7 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
       if (queue.length === 0) return
       setLastOptions(opts)
       setSession({
-        topicId: opts.topicId,
+        levelId: opts.levelId,
         mode: opts.mode,
         orientation: opts.orientation,
         queue,
@@ -292,14 +291,14 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
         finished: false,
       })
     },
-    [wordsByTopic, selection]
+    [wordsByLevel, selection]
   )
 
   const recordAnswer = useCallback((correct: boolean) => {
     setSession((prev) => {
       if (!prev || prev.finished) return prev
       const wordId = prev.queue[prev.index]
-      const key = statKey(prev.topicId, wordId)
+      const key = statKey(prev.levelId, wordId)
 
       setStats((s) => {
         const cur = s[key] ?? EMPTY_STAT
@@ -350,10 +349,10 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<FlashcardsContextValue>(
     () => ({
-      topics,
-      topicsLoading,
-      reloadTopics,
-      getTopicMeta,
+      levels,
+      levelsLoading,
+      reloadLevels,
+      getLevelMeta,
       getWords,
       wordsStatusOf,
       ensureWords,
@@ -372,10 +371,10 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
       clearLocalData,
     }),
     [
-      topics,
-      topicsLoading,
-      reloadTopics,
-      getTopicMeta,
+      levels,
+      levelsLoading,
+      reloadLevels,
+      getLevelMeta,
       getWords,
       wordsStatusOf,
       ensureWords,

@@ -23,11 +23,11 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 
-export default function TopicList() {
+export default function LevelList() {
   const {
-    topics,
-    topicsLoading,
-    reloadTopics,
+    levels,
+    levelsLoading,
+    reloadLevels,
     getWords,
     getSelectedIds,
     clearLocalData,
@@ -38,42 +38,50 @@ export default function TopicList() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-2">
         <div>
-          <h1 className="text-2xl font-bold">Elige un tema</h1>
+          <h1 className="text-2xl font-bold">Elige un nivel</h1>
           <p className="text-muted-foreground text-sm">
-            Selecciona un tema para empezar a practicar.
+            Selecciona tu nivel JLPT para empezar a practicar.
           </p>
         </div>
-        {topicsLoading && (
+        {levelsLoading && (
           <Loader2 className="text-muted-foreground size-4 animate-spin" />
         )}
       </div>
 
-      {!topicsLoading && topics.length === 0 ? (
+      {!levelsLoading && levels.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-12 text-center">
           <AlertCircle className="text-destructive size-8" />
           <p className="text-muted-foreground text-sm">
-            No se pudieron cargar los temas. Revisa tu conexión e inténtalo de
+            No se pudieron cargar los niveles. Revisa tu conexión e inténtalo de
             nuevo.
           </p>
-          <Button variant="outline" onClick={() => reloadTopics()}>
+          <Button variant="outline" onClick={() => reloadLevels()}>
             <RotateCcw className="size-4" />
             Reintentar
           </Button>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {topics.map((topic) => {
-          const count = getWords(topic.id).length
-          const selected = getSelectedIds(topic.id).length
-          return (
-            <Link key={topic.id} to={`/topic/${topic.id}`} className="group">
-              <Card className="h-full transition-colors group-hover:border-primary">
+          {levels.map((level) => {
+            const count = getWords(level.id).length
+            const selected = getSelectedIds(level.id).length
+            const soon = !level.url
+            const card = (
+              <Card
+                className={`h-full transition-colors ${
+                  soon ? 'opacity-60' : 'group-hover:border-primary'
+                }`}
+              >
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">{topic.name}</CardTitle>
-                    <ChevronRight className="text-muted-foreground size-5 transition-transform group-hover:translate-x-0.5" />
+                    <CardTitle className="text-lg">{level.name}</CardTitle>
+                    {soon ? (
+                      <Badge variant="outline">Próximamente</Badge>
+                    ) : (
+                      <ChevronRight className="text-muted-foreground size-5 transition-transform group-hover:translate-x-0.5" />
+                    )}
                   </div>
-                  <CardDescription>{topic.description}</CardDescription>
+                  <CardDescription>{level.description}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex items-center gap-2">
                   {count > 0 && (
@@ -84,8 +92,16 @@ export default function TopicList() {
                   )}
                 </CardContent>
               </Card>
-            </Link>
-          )
+            )
+            return soon ? (
+              <div key={level.id} aria-disabled>
+                {card}
+              </div>
+            ) : (
+              <Link key={level.id} to={`/level/${level.id}`} className="group">
+                {card}
+              </Link>
+            )
           })}
         </div>
       )}

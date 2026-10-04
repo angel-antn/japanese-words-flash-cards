@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   AlertCircle,
@@ -7,7 +6,6 @@ import {
   Flame,
   Loader2,
   RotateCcw,
-  Trash2,
 } from 'lucide-react'
 
 import { useFlashcards } from '@/context/FlashcardsContext'
@@ -21,16 +19,6 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
 
 export default function LevelList() {
   const {
@@ -42,9 +30,7 @@ export default function LevelList() {
     statOf,
     masteredCount,
     streak,
-    clearLocalData,
   } = useFlashcards()
-  const [open, setOpen] = useState(false)
 
   return (
     <div className="flex flex-col gap-6">
@@ -140,44 +126,6 @@ export default function LevelList() {
         </Link>
       </Button>
 
-      <div className="border-t pt-6">
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" className="text-destructive">
-              <Trash2 className="size-4" />
-              Borrar datos locales
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>¿Borrar datos locales?</DialogTitle>
-              <DialogDescription>
-                Se eliminarán tu selección de palabras y todas las
-                estadísticas de aciertos y fallos guardadas en este navegador.
-                Esta acción no se puede deshacer.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button variant="outline">Cancelar</Button>
-              </DialogClose>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  clearLocalData()
-                  setOpen(false)
-                }}
-              >
-                Borrar todo
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        <p className="text-muted-foreground mt-2 text-xs">
-          Borra tu selección de palabras y las estadísticas de aciertos y
-          fallos guardadas en este navegador.
-        </p>
-      </div>
     </div>
   )
 }

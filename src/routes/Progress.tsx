@@ -1,12 +1,22 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Flame } from 'lucide-react'
+import { ArrowLeft, Flame, Trash2 } from 'lucide-react'
 
 import { useFlashcards } from '@/context/FlashcardsContext'
 import type { Word } from '@/data/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 
 const DAY = 86_400_000
 const dateKey = (d: Date) => d.toISOString().slice(0, 10)
@@ -22,7 +32,9 @@ const STAGES = [
 type Stage = (typeof STAGES)[number]['key']
 
 export default function Progress() {
-  const { levels, getWords, statOf, days, streak, sessions } = useFlashcards()
+  const { levels, getWords, statOf, days, streak, sessions, clearLocalData } =
+    useFlashcards()
+  const [open, setOpen] = useState(false)
   // Frozen at mount so render stays pure (React Compiler rule).
   const [now] = useState(() => Date.now())
 
@@ -196,6 +208,45 @@ export default function Progress() {
           </Card>
         )
       })}
+
+      <div className="border-t pt-6">
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="text-destructive">
+              <Trash2 className="size-4" />
+              Borrar datos locales
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>¿Borrar datos locales?</DialogTitle>
+              <DialogDescription>
+                Se eliminarán tu selección de palabras, las estadísticas, la
+                racha y el historial de sesiones guardados en este navegador.
+                Esta acción no se puede deshacer.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="outline">Cancelar</Button>
+              </DialogClose>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  clearLocalData()
+                  setOpen(false)
+                }}
+              >
+                Borrar todo
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <p className="text-muted-foreground mt-2 text-xs">
+          Borra tu selección, estadísticas, racha e historial de sesiones de
+          este navegador.
+        </p>
+      </div>
     </div>
   )
 }

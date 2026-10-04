@@ -18,7 +18,7 @@ import {
 } from '@/data/remote'
 
 export type Orientation = 'jp-meaning' | 'meaning-jp'
-export type StudyMode = 'flashcard' | 'choice'
+export type StudyMode = 'flashcard' | 'choice' | 'typing'
 export type SessionSize = number | 'all'
 export type WordsStatus = 'idle' | 'loading' | 'error' | 'ready'
 

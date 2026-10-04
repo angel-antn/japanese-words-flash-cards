@@ -212,6 +212,7 @@ export default function LevelDetail() {
             >
               <ToggleGroupItem value="flashcard">Flashcard</ToggleGroupItem>
               <ToggleGroupItem value="choice">Selección simple</ToggleGroupItem>
+              <ToggleGroupItem value="typing">Escritura</ToggleGroupItem>
             </ToggleGroup>
           </div>
 
@@ -219,7 +220,9 @@ export default function LevelDetail() {
             <span className="text-sm font-medium">Dirección</span>
             <ToggleGroup
               type="single"
-              value={orientation}
+              // Typing only makes sense from meaning to Japanese.
+              value={mode === 'typing' ? 'meaning-jp' : orientation}
+              disabled={mode === 'typing'}
               onValueChange={(v) => v && setOrientation(v as Orientation)}
             >
               <ToggleGroupItem value="jp-meaning">

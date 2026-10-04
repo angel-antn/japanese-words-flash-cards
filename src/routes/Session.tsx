@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import FlashcardView from '@/components/FlashcardView'
 import ChoiceView from '@/components/ChoiceView'
+import TypingView from '@/components/TypingView'
 import SessionSummary from '@/components/SessionSummary'
 
 export default function Session() {
@@ -74,6 +75,8 @@ export default function Session() {
           orientation={session.orientation}
           onAnswer={recordAnswer}
         />
+      ) : session.mode === 'typing' ? (
+        <TypingView key={session.index} word={word} onAnswer={recordAnswer} />
       ) : (
         <ChoiceView
           key={session.index}

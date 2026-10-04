@@ -237,19 +237,20 @@ export default function LevelDetail() {
             </ToggleGroup>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">Dirección</span>
-            <ToggleGroup
-              type="single"
-              // Typing only makes sense from meaning to Japanese.
-              value={mode === 'typing' ? 'meaning-jp' : orientation}
-              disabled={mode === 'typing'}
-              onValueChange={(v) => v && setOrientation(v as Orientation)}
-            >
-              <ToggleGroupItem value="jp-meaning">日本語 → Español</ToggleGroupItem>
-              <ToggleGroupItem value="meaning-jp">Español → 日本語</ToggleGroupItem>
-            </ToggleGroup>
-          </div>
+          {/* Typing is always meaning → Japanese, so no direction to pick. */}
+          {mode !== 'typing' && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium">Dirección</span>
+              <ToggleGroup
+                type="single"
+                value={orientation}
+                onValueChange={(v) => v && setOrientation(v as Orientation)}
+              >
+                <ToggleGroupItem value="jp-meaning">日本語 → Español</ToggleGroupItem>
+                <ToggleGroupItem value="meaning-jp">Español → 日本語</ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+          )}
 
           <div className="flex flex-col gap-1.5">
             <span className="text-sm font-medium">Tarjetas por sesión</span>

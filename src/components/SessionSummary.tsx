@@ -1,4 +1,4 @@
-import { RotateCcw, Home } from 'lucide-react'
+import { Flame, Home, RotateCcw } from 'lucide-react'
 
 import type { Word } from '@/data/types'
 import type { Session } from '@/context/FlashcardsContext'
@@ -9,11 +9,13 @@ export default function SessionSummary({
   session,
   words,
   onRestart,
+  onRetryWrong,
   onExit,
 }: {
   session: Session
   words: Word[]
   onRestart: () => void
+  onRetryWrong: () => void
   onExit: () => void
 }) {
   const total = session.correct + session.wrong
@@ -52,7 +54,13 @@ export default function SessionSummary({
 
       {wrongWords.length > 0 && (
         <div className="w-full">
-          <h2 className="mb-2 text-sm font-medium">Palabras para repasar</h2>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-medium">Palabras para repasar</h2>
+            <Button size="sm" variant="outline" onClick={onRetryWrong}>
+              <Flame className="size-4" />
+              Repetir solo estas
+            </Button>
+          </div>
           <ul className="flex flex-col gap-1.5">
             {wrongWords.map((w) => (
               <li

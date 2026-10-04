@@ -1,17 +1,31 @@
 import { startTransition } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { X } from 'lucide-react'
+import { Undo2, Volume2, X } from 'lucide-react'
 
 import { useFlashcards } from '@/context/FlashcardsContext'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import FlashcardView from '@/components/FlashcardView'
 import ChoiceView from '@/components/ChoiceView'
+import TypingView from '@/components/TypingView'
 import SessionSummary from '@/components/SessionSummary'
+import { canSpeak, speak } from '@/lib/speech'
+import { categoryColor } from '@/lib/categories'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 
 export default function Session() {
-  const { session, getLevelMeta, getWords, recordAnswer, restartSession, endSession } =
-    useFlashcards()
+  const {
+    session,
+    getLevelMeta,
+    getWords,
+    recordAnswer,
+    undoAnswer,
+    canUndo,
+    restartSession,
+    retryWrong,
+    endSession,
+  } = useFlashcards()
   const navigate = useNavigate()
 
   if (!session) return <Navigate to="/" replace />
@@ -35,6 +49,7 @@ export default function Session() {
         session={session}
         words={words}
         onRestart={restartSession}
+        onRetryWrong={retryWrong}
         onExit={exit}
       />
     )
@@ -43,6 +58,11 @@ export default function Session() {
   const wordId = session.queue[session.index]
   const word = words.find((w) => w.id === wordId)
   if (!word) return <Navigate to="/" replace />
+
+  // Same color as the level's chips: index by first appearance in the list.
+  const categoryIndex = [...new Set(words.map((w) => w.category))].indexOf(
+    word.category
+  )
 
   const total = session.queue.length
   const current = session.index + 1
@@ -60,12 +80,38 @@ export default function Session() {
         <Button
           variant="ghost"
           size="icon"
+          disabled={!canUndo}
+          onClick={undoAnswer}
+          aria-label="Deshacer última respuesta"
+        >
+          <Undo2 className="size-4" />
+        </Button>
+        {canSpeak && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => speak(word.word)}
+            aria-label="Escuchar pronunciación"
+          >
+            <Volume2 className="size-4" />
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={exit}
           aria-label="Salir de la sesión"
         >
           <X className="size-4" />
         </Button>
       </div>
+
+      <Badge
+        variant="outline"
+        className={cn('self-center', categoryColor(categoryIndex))}
+      >
+        {word.category.charAt(0).toUpperCase() + word.category.slice(1)}
+      </Badge>
 
       {session.mode === 'flashcard' ? (
         <FlashcardView
@@ -74,6 +120,8 @@ export default function Session() {
           orientation={session.orientation}
           onAnswer={recordAnswer}
         />
+      ) : session.mode === 'typing' ? (
+        <TypingView key={session.index} word={word} onAnswer={recordAnswer} />
       ) : (
         <ChoiceView
           key={session.index}

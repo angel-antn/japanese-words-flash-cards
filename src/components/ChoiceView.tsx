@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Check, X } from 'lucide-react'
 
 import type { Word } from '@/data/types'
@@ -68,6 +68,16 @@ export default function ChoiceView({
     window.setTimeout(() => onAnswer(opt.correct), 850)
   }
 
+  // Keys 1-4 pick an option.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const i = Number(e.key) - 1
+      if (i >= 0 && i < options.length) handlePick(options[i])
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+
   return (
     <div className="flex flex-col items-center gap-6">
       <div className="bg-card text-card-foreground flex min-h-40 w-full flex-col items-center justify-center gap-2 rounded-xl border p-6 text-center">
@@ -108,7 +118,12 @@ export default function ChoiceView({
                 revealed && !showCorrect && !showWrong && 'opacity-60'
               )}
             >
-              <span>{opt.label}</span>
+              <span>
+                <kbd className="text-muted-foreground mr-2 hidden text-xs sm:inline">
+                  {options.indexOf(opt) + 1}
+                </kbd>
+                {opt.label}
+              </span>
               {showCorrect && (
                 <Check className="size-5 text-[var(--success)]" />
               )}

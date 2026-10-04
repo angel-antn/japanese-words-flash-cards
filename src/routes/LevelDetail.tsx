@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   AlertCircle,
   ArrowLeft,
@@ -8,6 +8,9 @@ import {
   Loader2,
   Play,
   Search,
+  Flame,
+  CalendarCheck,
+  Volume2,
   SlidersHorizontal,
   RotateCcw,
   Square,
@@ -19,12 +22,15 @@ import {
   type SessionSize,
   type StudyMode,
 } from '@/context/FlashcardsContext'
+import type { Word } from '@/data/types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Card, CardContent } from '@/components/ui/card'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { categoryColor } from '@/lib/categories'
+import { isDue } from '@/lib/srs'
+import { canSpeak, speak } from '@/lib/speech'
 import { cn } from '@/lib/utils'
 
 const CHIP =
@@ -48,6 +54,7 @@ const SIZE_OPTIONS: { value: SessionSize; label: string }[] = [
 
 export default function LevelDetail() {
   const { levelId = '' } = useParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const {
     getLevelMeta,
@@ -67,8 +74,13 @@ export default function LevelDetail() {
   const [size, setSize] = useState<SessionSize>('all')
   const [orientation, setOrientation] = useState<Orientation>('jp-meaning')
   const [mode, setMode] = useState<StudyMode>('flashcard')
-  const [categories, setCategories] = useState<string[]>([])
+  const [categories, setCategories] = useState<string[]>(() =>
+    searchParams.getAll('cat')
+  )
   const [query, setQuery] = useState('')
+  const [sort, setSort] = useState<'default' | 'failed' | 'unseen' | 'az'>(
+    'default'
+  )
 
   useEffect(() => {
     ensureWords(levelId)
@@ -86,7 +98,7 @@ export default function LevelDetail() {
   const colorOf = (cat: string) => categoryColor(allCategories.indexOf(cat))
   const visible = useMemo(() => {
     const q = norm(query.trim())
-    return words.filter(
+    const list = words.filter(
       (w) =>
         (categories.length === 0 || categories.includes(w.category)) &&
         (!q ||
@@ -94,7 +106,19 @@ export default function LevelDetail() {
           norm(w.meaning).includes(q) ||
           (w.kanji ?? '').includes(q))
     )
-  }, [words, categories, query])
+    const rate = (w: Word) => {
+      const st = statOf(levelId, w.id)
+      return st.seen ? st.wrong / st.seen : -1
+    }
+    if (sort === 'failed') list.sort((a, b) => rate(b) - rate(a))
+    else if (sort === 'unseen')
+      list.sort(
+        (a, b) => statOf(levelId, a.id).seen - statOf(levelId, b.id).seen
+      )
+    else if (sort === 'az')
+      list.sort((a, b) => a.word.localeCompare(b.word, 'ja'))
+    return list
+  }, [words, categories, query, sort, statOf, levelId])
 
   const BackButton = (
     <Button
@@ -156,6 +180,35 @@ export default function LevelDetail() {
     navigate('/session')
   }
 
+  // Words failed at least once; ignores selection so weak spots never hide.
+  const failedIds = words
+    .filter((w) => statOf(level.id, w.id).wrong > 0)
+    .map((w) => w.id)
+  // Selected words whose Leitner review is due (never-seen words count as due).
+  const dueIds = words
+    .filter((w) => isSelected(level.id, w.id) && isDue(statOf(level.id, w.id)))
+    .map((w) => w.id)
+  const handlePlayDue = () => {
+    startSession({
+      levelId: level.id,
+      size: 'all',
+      orientation,
+      mode,
+      wordIds: dueIds,
+    })
+    navigate('/session')
+  }
+  const handlePlayFailed = () => {
+    startSession({
+      levelId: level.id,
+      size: 'all',
+      orientation,
+      mode,
+      wordIds: failedIds,
+    })
+    navigate('/session')
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
@@ -179,25 +232,25 @@ export default function LevelDetail() {
               onValueChange={(v) => v && setMode(v as StudyMode)}
             >
               <ToggleGroupItem value="flashcard">Flashcard</ToggleGroupItem>
-              <ToggleGroupItem value="choice">Selección simple</ToggleGroupItem>
+              <ToggleGroupItem value="choice">Elegir</ToggleGroupItem>
+              <ToggleGroupItem value="typing">Escribir</ToggleGroupItem>
             </ToggleGroup>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">Dirección</span>
-            <ToggleGroup
-              type="single"
-              value={orientation}
-              onValueChange={(v) => v && setOrientation(v as Orientation)}
-            >
-              <ToggleGroupItem value="jp-meaning">
-                日本語 → Significado
-              </ToggleGroupItem>
-              <ToggleGroupItem value="meaning-jp">
-                Significado → 日本語
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </div>
+          {/* Typing is always meaning → Japanese, so no direction to pick. */}
+          {mode !== 'typing' && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium">Dirección</span>
+              <ToggleGroup
+                type="single"
+                value={orientation}
+                onValueChange={(v) => v && setOrientation(v as Orientation)}
+              >
+                <ToggleGroupItem value="jp-meaning">日本語 → Español</ToggleGroupItem>
+                <ToggleGroupItem value="meaning-jp">Español → 日本語</ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+          )}
 
           <div className="flex flex-col gap-1.5">
             <span className="text-sm font-medium">Tarjetas por sesión</span>
@@ -231,11 +284,34 @@ export default function LevelDetail() {
             <Play className="size-4" />
             Jugar ({selectedCount} seleccionadas)
           </Button>
+          {dueIds.length > 0 && (
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={handlePlayDue}
+            >
+              <CalendarCheck className="size-4" />
+              Repaso del día ({dueIds.length})
+            </Button>
+          )}
+          {failedIds.length > 0 && (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handlePlayFailed}
+            >
+              <Flame className="size-4" />
+              Practicar las que fallo ({failedIds.length})
+            </Button>
+          )}
         </CardContent>
       </Card>
 
       {/* Filter */}
-      <details className="group bg-card text-card-foreground rounded-xl border shadow-sm">
+      <details
+        className="group bg-card text-card-foreground rounded-xl border shadow-sm"
+        open={searchParams.has('cat') || undefined}
+      >
         <summary className="flex cursor-pointer list-none items-center gap-2 px-6 py-4 text-sm font-medium [&::-webkit-details-marker]:hidden">
           <SlidersHorizontal className="size-4" />
           Filtro
@@ -247,7 +323,8 @@ export default function LevelDetail() {
           <ChevronDown className="text-muted-foreground ml-auto size-4 transition-transform group-open:rotate-180" />
         </summary>
         <div className="flex flex-col gap-4 px-6 pb-6">
-          <div className="relative">
+          <div className="flex gap-2">
+          <div className="relative flex-1">
             <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
             <input
               type="search"
@@ -257,6 +334,18 @@ export default function LevelDetail() {
               aria-label="Buscar palabra"
               className="border-input bg-background focus-visible:ring-ring/50 h-9 w-full rounded-md border pr-3 pl-9 text-sm outline-none focus-visible:ring-[3px]"
             />
+          </div>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as typeof sort)}
+            aria-label="Ordenar"
+            className="border-input bg-background focus-visible:ring-ring/50 h-9 rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]"
+          >
+            <option value="default">Orden original</option>
+            <option value="failed">Más falladas</option>
+            <option value="unseen">No vistas primero</option>
+            <option value="az">あ → ん</option>
+          </select>
           </div>
         <div
           role="group"
@@ -358,6 +447,20 @@ export default function LevelDetail() {
                     {word.meaning}
                   </p>
                 </div>
+                {canSpeak && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground size-8"
+                    aria-label={`Escuchar ${word.word}`}
+                    onClick={(e) => {
+                      e.preventDefault() // don't toggle the checkbox
+                      speak(word.word)
+                    }}
+                  >
+                    <Volume2 className="size-4" />
+                  </Button>
+                )}
                 <Badge
                   className={colorOf(word.category)}
                   variant="outline"
@@ -367,9 +470,13 @@ export default function LevelDetail() {
                 {stat.seen > 0 && (
                   <Badge
                     variant={rate >= 40 ? 'destructive' : 'secondary'}
-                    title={`${stat.wrong} fallos de ${stat.seen} veces`}
+                    title={`${stat.wrong} fallos de ${stat.seen} veces · caja ${stat.box ?? 0}`}
                   >
                     {stat.wrong}/{stat.seen}
+                    <span aria-hidden className="ml-1 tracking-tighter opacity-70">
+                      {'●'.repeat(stat.box ?? 0)}
+                      {'○'.repeat(4 - (stat.box ?? 0))}
+                    </span>
                   </Badge>
                 )}
               </label>

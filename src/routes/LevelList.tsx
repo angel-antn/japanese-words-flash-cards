@@ -1,8 +1,15 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertCircle, ChevronRight, Loader2, RotateCcw, Trash2 } from 'lucide-react'
+import {
+  AlertCircle,
+  BarChart3,
+  ChevronRight,
+  Flame,
+  Loader2,
+  RotateCcw,
+} from 'lucide-react'
 
 import { useFlashcards } from '@/context/FlashcardsContext'
+import { isDue } from '@/lib/srs'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -12,16 +19,6 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
 
 export default function LevelList() {
   const {
@@ -30,9 +27,10 @@ export default function LevelList() {
     reloadLevels,
     getWords,
     getSelectedIds,
-    clearLocalData,
+    statOf,
+    masteredCount,
+    streak,
   } = useFlashcards()
-  const [open, setOpen] = useState(false)
 
   return (
     <div className="flex flex-col gap-6">
@@ -45,6 +43,12 @@ export default function LevelList() {
         </div>
         {levelsLoading && (
           <Loader2 className="text-muted-foreground size-4 animate-spin" />
+        )}
+        {streak > 0 && (
+          <Badge variant="secondary" className="ml-auto gap-1 text-sm">
+            <Flame className="size-4 text-orange-500" />
+            {streak} {streak === 1 ? 'día' : 'días'} seguidos
+          </Badge>
         )}
       </div>
 
@@ -64,7 +68,12 @@ export default function LevelList() {
         <div className="grid gap-4 sm:grid-cols-2">
           {levels.map((level) => {
             const count = getWords(level.id).length
-            const selected = getSelectedIds(level.id).length
+            const selectedIds = getSelectedIds(level.id)
+            const selected = selectedIds.length
+            const due = selectedIds.filter((id) =>
+              isDue(statOf(level.id, id))
+            ).length
+            const mastered = masteredCount(level.id)
             const soon = !level.url
             const card = (
               <Card
@@ -90,6 +99,10 @@ export default function LevelList() {
                   {selected > 0 && (
                     <Badge variant="outline">{selected} seleccionadas</Badge>
                   )}
+                  {mastered > 0 && (
+                    <Badge variant="success">{mastered} dominadas</Badge>
+                  )}
+                  {due > 0 && <Badge>{due} para repasar</Badge>}
                 </CardContent>
               </Card>
             )
@@ -106,44 +119,13 @@ export default function LevelList() {
         </div>
       )}
 
-      <div className="border-t pt-6">
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" className="text-destructive">
-              <Trash2 className="size-4" />
-              Borrar datos locales
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>¿Borrar datos locales?</DialogTitle>
-              <DialogDescription>
-                Se eliminarán tu selección de palabras y todas las
-                estadísticas de aciertos y fallos guardadas en este navegador.
-                Esta acción no se puede deshacer.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button variant="outline">Cancelar</Button>
-              </DialogClose>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  clearLocalData()
-                  setOpen(false)
-                }}
-              >
-                Borrar todo
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        <p className="text-muted-foreground mt-2 text-xs">
-          Borra tu selección de palabras y las estadísticas de aciertos y
-          fallos guardadas en este navegador.
-        </p>
-      </div>
+      <Button asChild variant="outline" className="w-fit">
+        <Link to="/progress">
+          <BarChart3 className="size-4" />
+          Tu progreso
+        </Link>
+      </Button>
+
     </div>
   )
 }

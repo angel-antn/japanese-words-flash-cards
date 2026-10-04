@@ -9,6 +9,7 @@ import {
 } from 'react'
 
 import type { LevelMeta, Word } from '@/data/types'
+import { BOX_INTERVALS } from '@/lib/srs'
 import {
   loadLevels,
   loadWords,
@@ -17,11 +18,12 @@ import {
 } from '@/data/remote'
 
 export type Orientation = 'jp-meaning' | 'meaning-jp'
-export type StudyMode = 'flashcard' | 'choice'
+export type StudyMode = 'flashcard' | 'choice' | 'typing'
 export type SessionSize = number | 'all'
 export type WordsStatus = 'idle' | 'loading' | 'error' | 'ready'
 
-export type WordStat = { seen: number; wrong: number }
+/** Leitner box (0-4) and next review time. Missing on legacy stats = box 0, due now. */
+export type WordStat = { seen: number; wrong: number; box?: number; due?: number }
 type Stats = Record<string, WordStat>
 type Selection = Record<string, number[]>
 
@@ -42,10 +44,37 @@ export type StartSessionOptions = {
   size: SessionSize
   orientation: Orientation
   mode: StudyMode
+  /** Explicit word ids to play instead of the persisted selection. */
+  wordIds?: number[]
 }
 
 const STATS_KEY = 'jf.stats'
 const SELECTION_KEY = 'jf.selection'
+const DAYS_KEY = 'jf.days'
+const SESSIONS_KEY = 'jf.sessions'
+
+export type SessionRecord = {
+  at: number
+  levelId: string
+  mode: StudyMode
+  correct: number
+  wrong: number
+}
+
+const today = () => new Date().toISOString().slice(0, 10)
+
+/** Consecutive practice days ending today or yesterday. */
+function streakOf(days: string[]) {
+  const set = new Set(days)
+  const d = new Date()
+  if (!set.has(today())) d.setDate(d.getDate() - 1)
+  let n = 0
+  while (set.has(d.toISOString().slice(0, 10))) {
+    n++
+    d.setDate(d.getDate() - 1)
+  }
+  return n
+}
 
 function statKey(levelId: string, wordId: number) {
   return `${levelId}:${wordId}`
@@ -88,11 +117,23 @@ type FlashcardsContextValue = {
   deselectAll: (levelId: string, wordIds: number[]) => void
   // stats
   statOf: (levelId: string, wordId: number) => WordStat
+  /** Words in Leitner box 3 or higher. */
+  masteredCount: (levelId: string) => number
+  streak: number
+  /** YYYY-MM-DD days with at least one answer. */
+  days: string[]
+  /** Finished sessions, oldest first. */
+  sessions: SessionRecord[]
   // session
   session: Session | null
   startSession: (opts: StartSessionOptions) => void
   recordAnswer: (correct: boolean) => void
+  /** Reverts the last answer (one step). */
+  undoAnswer: () => void
+  canUndo: boolean
   restartSession: () => void
+  /** New session with only the words failed in the current one. */
+  retryWrong: () => void
   endSession: () => void
   // data
   clearLocalData: () => void
@@ -107,10 +148,18 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
   const [selection, setSelection] = useState<Selection>(() =>
     loadJSON(SELECTION_KEY, {})
   )
+  const [days, setDays] = useState<string[]>(() => loadJSON(DAYS_KEY, []))
+  const [sessions, setSessions] = useState<SessionRecord[]>(() =>
+    loadJSON(SESSIONS_KEY, [])
+  )
   const [session, setSession] = useState<Session | null>(null)
   const [lastOptions, setLastOptions] = useState<StartSessionOptions | null>(
     null
   )
+  const [history, setHistory] = useState<{
+    session: Session
+    stats: Stats
+  } | null>(null)
 
   const [levels, setLevels] = useState<LevelMeta[]>(
     () => readCachedLevels() ?? []
@@ -148,6 +197,22 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
       /* ignore quota errors */
     }
   }, [selection])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DAYS_KEY, JSON.stringify(days))
+    } catch {
+      /* ignore quota errors */
+    }
+  }, [days])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions))
+    } catch {
+      /* ignore quota errors */
+    }
+  }, [sessions])
 
   // Retry entry point for the UI (event handler — safe to set state here).
   const reloadLevels = useCallback(() => {
@@ -267,18 +332,28 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
     [stats]
   )
 
+  const masteredCount = useCallback(
+    (levelId: string) =>
+      Object.entries(stats).filter(
+        ([k, st]) => k.startsWith(`${levelId}:`) && (st.box ?? 0) >= 3
+      ).length,
+    [stats]
+  )
+  const streak = useMemo(() => streakOf(days), [days])
+
   const startSession = useCallback(
     (opts: StartSessionOptions) => {
       const words = wordsByLevel[opts.levelId] ?? []
       if (words.length === 0) return
-      const selectedIds = new Set(selection[opts.levelId] ?? [])
+      const pool = new Set(opts.wordIds ?? selection[opts.levelId] ?? [])
       const selected = shuffle(
-        words.filter((w) => selectedIds.has(w.id)).map((w) => w.id)
+        words.filter((w) => pool.has(w.id)).map((w) => w.id)
       )
       const queue =
         opts.size === 'all' ? selected : selected.slice(0, opts.size)
       if (queue.length === 0) return
       setLastOptions(opts)
+      setHistory(null)
       setSession({
         levelId: opts.levelId,
         mode: opts.mode,
@@ -294,44 +369,72 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
     [wordsByLevel, selection]
   )
 
-  const recordAnswer = useCallback((correct: boolean) => {
-    setSession((prev) => {
-      if (!prev || prev.finished) return prev
-      const wordId = prev.queue[prev.index]
-      const key = statKey(prev.levelId, wordId)
+  const recordAnswer = useCallback(
+    (correct: boolean) => {
+      if (!session || session.finished) return
+      const wordId = session.queue[session.index]
+      const key = statKey(session.levelId, wordId)
+      setHistory({ session, stats })
 
-      setStats((s) => {
-        const cur = s[key] ?? EMPTY_STAT
-        return {
-          ...s,
-          [key]: {
-            seen: cur.seen + 1,
-            wrong: cur.wrong + (correct ? 0 : 1),
-          },
-        }
+      const cur = stats[key] ?? EMPTY_STAT
+      const box = correct ? Math.min((cur.box ?? 0) + 1, 4) : 0
+      setStats({
+        ...stats,
+        [key]: {
+          seen: cur.seen + 1,
+          wrong: cur.wrong + (correct ? 0 : 1),
+          box,
+          due: Date.now() + BOX_INTERVALS[box],
+        },
       })
+      setDays((d) => (d.includes(today()) ? d : [...d, today()]))
 
-      const queue = correct ? prev.queue : [...prev.queue, wordId]
+      const queue = correct ? session.queue : [...session.queue, wordId]
       const wrongIds =
-        correct || prev.wrongIds.includes(wordId)
-          ? prev.wrongIds
-          : [...prev.wrongIds, wordId]
-      const nextIndex = prev.index + 1
-      return {
-        ...prev,
+        correct || session.wrongIds.includes(wordId)
+          ? session.wrongIds
+          : [...session.wrongIds, wordId]
+      const nextIndex = session.index + 1
+      const next: Session = {
+        ...session,
         queue,
         wrongIds,
-        correct: prev.correct + (correct ? 1 : 0),
-        wrong: prev.wrong + (correct ? 0 : 1),
+        correct: session.correct + (correct ? 1 : 0),
+        wrong: session.wrong + (correct ? 0 : 1),
         index: nextIndex,
         finished: nextIndex >= queue.length,
       }
-    })
-  }, [])
+      setSession(next)
+      if (next.finished)
+        setSessions((list) => [
+          ...list.slice(-199), // ponytail: keep last 200 sessions
+          {
+            at: Date.now(),
+            levelId: next.levelId,
+            mode: next.mode,
+            correct: next.correct,
+            wrong: next.wrong,
+          },
+        ])
+    },
+    [session, stats]
+  )
+
+  const undoAnswer = useCallback(() => {
+    if (!history) return
+    setSession(history.session)
+    setStats(history.stats)
+    setHistory(null)
+  }, [history])
 
   const restartSession = useCallback(() => {
     if (lastOptions) startSession(lastOptions)
   }, [lastOptions, startSession])
+
+  const retryWrong = useCallback(() => {
+    if (lastOptions && session && session.wrongIds.length > 0)
+      startSession({ ...lastOptions, size: 'all', wordIds: session.wrongIds })
+  }, [lastOptions, session, startSession])
 
   const endSession = useCallback(() => setSession(null), [])
 
@@ -339,11 +442,15 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.removeItem(STATS_KEY)
       localStorage.removeItem(SELECTION_KEY)
+      localStorage.removeItem(DAYS_KEY)
+      localStorage.removeItem(SESSIONS_KEY)
     } catch {
       /* ignore */
     }
     setStats({})
     setSelection({})
+    setDays([])
+    setSessions([])
     setSession(null)
   }, [])
 
@@ -363,10 +470,17 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
       selectAll,
       deselectAll,
       statOf,
+      masteredCount,
+      streak,
+      days,
+      sessions,
       session,
       startSession,
       recordAnswer,
+      undoAnswer,
+      canUndo: history !== null,
       restartSession,
+      retryWrong,
       endSession,
       clearLocalData,
     }),
@@ -385,10 +499,17 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
       selectAll,
       deselectAll,
       statOf,
+      masteredCount,
+      streak,
+      days,
+      sessions,
       session,
       startSession,
       recordAnswer,
+      undoAnswer,
+      history,
       restartSession,
+      retryWrong,
       endSession,
       clearLocalData,
     ]

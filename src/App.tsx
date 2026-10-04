@@ -6,6 +6,7 @@ import LevelList from '@/routes/LevelList'
 import LevelDetail from '@/routes/LevelDetail'
 import Session from '@/routes/Session'
 import InstallGuide from '@/routes/InstallGuide'
+import Progress from '@/routes/Progress'
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
           <Route path="/level/:levelId" element={<LevelDetail />} />
           <Route path="/session" element={<Session />} />
           <Route path="/install" element={<InstallGuide />} />
+          <Route path="/progress" element={<Progress />} />
         </Routes>
       </main>
     </div>

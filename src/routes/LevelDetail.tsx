@@ -22,6 +22,7 @@ import {
   type SessionSize,
   type StudyMode,
 } from '@/context/FlashcardsContext'
+import type { Word } from '@/data/types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -74,6 +75,9 @@ export default function LevelDetail() {
   const [mode, setMode] = useState<StudyMode>('flashcard')
   const [categories, setCategories] = useState<string[]>([])
   const [query, setQuery] = useState('')
+  const [sort, setSort] = useState<'default' | 'failed' | 'unseen' | 'az'>(
+    'default'
+  )
 
   useEffect(() => {
     ensureWords(levelId)
@@ -91,7 +95,7 @@ export default function LevelDetail() {
   const colorOf = (cat: string) => categoryColor(allCategories.indexOf(cat))
   const visible = useMemo(() => {
     const q = norm(query.trim())
-    return words.filter(
+    const list = words.filter(
       (w) =>
         (categories.length === 0 || categories.includes(w.category)) &&
         (!q ||
@@ -99,7 +103,19 @@ export default function LevelDetail() {
           norm(w.meaning).includes(q) ||
           (w.kanji ?? '').includes(q))
     )
-  }, [words, categories, query])
+    const rate = (w: Word) => {
+      const st = statOf(levelId, w.id)
+      return st.seen ? st.wrong / st.seen : -1
+    }
+    if (sort === 'failed') list.sort((a, b) => rate(b) - rate(a))
+    else if (sort === 'unseen')
+      list.sort(
+        (a, b) => statOf(levelId, a.id).seen - statOf(levelId, b.id).seen
+      )
+    else if (sort === 'az')
+      list.sort((a, b) => a.word.localeCompare(b.word, 'ja'))
+    return list
+  }, [words, categories, query, sort, statOf, levelId])
 
   const BackButton = (
     <Button
@@ -304,7 +320,8 @@ export default function LevelDetail() {
           <ChevronDown className="text-muted-foreground ml-auto size-4 transition-transform group-open:rotate-180" />
         </summary>
         <div className="flex flex-col gap-4 px-6 pb-6">
-          <div className="relative">
+          <div className="flex gap-2">
+          <div className="relative flex-1">
             <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
             <input
               type="search"
@@ -314,6 +331,18 @@ export default function LevelDetail() {
               aria-label="Buscar palabra"
               className="border-input bg-background focus-visible:ring-ring/50 h-9 w-full rounded-md border pr-3 pl-9 text-sm outline-none focus-visible:ring-[3px]"
             />
+          </div>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as typeof sort)}
+            aria-label="Ordenar"
+            className="border-input bg-background focus-visible:ring-ring/50 h-9 rounded-md border px-2 text-sm outline-none focus-visible:ring-[3px]"
+          >
+            <option value="default">Orden original</option>
+            <option value="failed">Más falladas</option>
+            <option value="unseen">No vistas primero</option>
+            <option value="az">あ → ん</option>
+          </select>
           </div>
         <div
           role="group"

@@ -10,6 +10,9 @@ import ChoiceView from '@/components/ChoiceView'
 import TypingView from '@/components/TypingView'
 import SessionSummary from '@/components/SessionSummary'
 import { canSpeak, speak } from '@/lib/speech'
+import { categoryColor } from '@/lib/categories'
+import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 
 export default function Session() {
   const { session, getLevelMeta, getWords, recordAnswer, restartSession, endSession } =
@@ -46,6 +49,11 @@ export default function Session() {
   const word = words.find((w) => w.id === wordId)
   if (!word) return <Navigate to="/" replace />
 
+  // Same color as the level's chips: index by first appearance in the list.
+  const categoryIndex = [...new Set(words.map((w) => w.category))].indexOf(
+    word.category
+  )
+
   const total = session.queue.length
   const current = session.index + 1
   const progress = (session.index / total) * 100
@@ -78,6 +86,13 @@ export default function Session() {
           <X className="size-4" />
         </Button>
       </div>
+
+      <Badge
+        variant="outline"
+        className={cn('self-center', categoryColor(categoryIndex))}
+      >
+        {word.category.charAt(0).toUpperCase() + word.category.slice(1)}
+      </Badge>
 
       {session.mode === 'flashcard' ? (
         <FlashcardView

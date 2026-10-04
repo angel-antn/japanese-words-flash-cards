@@ -51,6 +51,15 @@ export type StartSessionOptions = {
 const STATS_KEY = 'jf.stats'
 const SELECTION_KEY = 'jf.selection'
 const DAYS_KEY = 'jf.days'
+const SESSIONS_KEY = 'jf.sessions'
+
+export type SessionRecord = {
+  at: number
+  levelId: string
+  mode: StudyMode
+  correct: number
+  wrong: number
+}
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -111,6 +120,8 @@ type FlashcardsContextValue = {
   /** Words in Leitner box 3 or higher. */
   masteredCount: (levelId: string) => number
   streak: number
+  /** Finished sessions, oldest first. */
+  sessions: SessionRecord[]
   // session
   session: Session | null
   startSession: (opts: StartSessionOptions) => void
@@ -136,6 +147,9 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
     loadJSON(SELECTION_KEY, {})
   )
   const [days, setDays] = useState<string[]>(() => loadJSON(DAYS_KEY, []))
+  const [sessions, setSessions] = useState<SessionRecord[]>(() =>
+    loadJSON(SESSIONS_KEY, [])
+  )
   const [session, setSession] = useState<Session | null>(null)
   const [lastOptions, setLastOptions] = useState<StartSessionOptions | null>(
     null
@@ -189,6 +203,14 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
       /* ignore quota errors */
     }
   }, [days])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions))
+    } catch {
+      /* ignore quota errors */
+    }
+  }, [sessions])
 
   // Retry entry point for the UI (event handler — safe to set state here).
   const reloadLevels = useCallback(() => {
@@ -371,7 +393,7 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
           ? session.wrongIds
           : [...session.wrongIds, wordId]
       const nextIndex = session.index + 1
-      setSession({
+      const next: Session = {
         ...session,
         queue,
         wrongIds,
@@ -379,7 +401,19 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
         wrong: session.wrong + (correct ? 0 : 1),
         index: nextIndex,
         finished: nextIndex >= queue.length,
-      })
+      }
+      setSession(next)
+      if (next.finished)
+        setSessions((list) => [
+          ...list.slice(-199), // ponytail: keep last 200 sessions
+          {
+            at: Date.now(),
+            levelId: next.levelId,
+            mode: next.mode,
+            correct: next.correct,
+            wrong: next.wrong,
+          },
+        ])
     },
     [session, stats]
   )
@@ -407,12 +441,14 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem(STATS_KEY)
       localStorage.removeItem(SELECTION_KEY)
       localStorage.removeItem(DAYS_KEY)
+      localStorage.removeItem(SESSIONS_KEY)
     } catch {
       /* ignore */
     }
     setStats({})
     setSelection({})
     setDays([])
+    setSessions([])
     setSession(null)
   }, [])
 
@@ -434,6 +470,7 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
       statOf,
       masteredCount,
       streak,
+      sessions,
       session,
       startSession,
       recordAnswer,
@@ -461,6 +498,7 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
       statOf,
       masteredCount,
       streak,
+      sessions,
       session,
       startSession,
       recordAnswer,

@@ -115,7 +115,12 @@ type FlashcardsContextValue = {
   session: Session | null
   startSession: (opts: StartSessionOptions) => void
   recordAnswer: (correct: boolean) => void
+  /** Reverts the last answer (one step). */
+  undoAnswer: () => void
+  canUndo: boolean
   restartSession: () => void
+  /** New session with only the words failed in the current one. */
+  retryWrong: () => void
   endSession: () => void
   // data
   clearLocalData: () => void
@@ -135,6 +140,10 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
   const [lastOptions, setLastOptions] = useState<StartSessionOptions | null>(
     null
   )
+  const [history, setHistory] = useState<{
+    session: Session
+    stats: Stats
+  } | null>(null)
 
   const [levels, setLevels] = useState<LevelMeta[]>(
     () => readCachedLevels() ?? []
@@ -320,6 +329,7 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
         opts.size === 'all' ? selected : selected.slice(0, opts.size)
       if (queue.length === 0) return
       setLastOptions(opts)
+      setHistory(null)
       setSession({
         levelId: opts.levelId,
         mode: opts.mode,
@@ -335,49 +345,60 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
     [wordsByLevel, selection]
   )
 
-  const recordAnswer = useCallback((correct: boolean) => {
-    setSession((prev) => {
-      if (!prev || prev.finished) return prev
-      const wordId = prev.queue[prev.index]
-      const key = statKey(prev.levelId, wordId)
+  const recordAnswer = useCallback(
+    (correct: boolean) => {
+      if (!session || session.finished) return
+      const wordId = session.queue[session.index]
+      const key = statKey(session.levelId, wordId)
+      setHistory({ session, stats })
 
+      const cur = stats[key] ?? EMPTY_STAT
+      const box = correct ? Math.min((cur.box ?? 0) + 1, 4) : 0
+      setStats({
+        ...stats,
+        [key]: {
+          seen: cur.seen + 1,
+          wrong: cur.wrong + (correct ? 0 : 1),
+          box,
+          due: Date.now() + BOX_INTERVALS[box],
+        },
+      })
       setDays((d) => (d.includes(today()) ? d : [...d, today()]))
 
-      setStats((s) => {
-        const cur = s[key] ?? EMPTY_STAT
-        const box = correct ? Math.min((cur.box ?? 0) + 1, 4) : 0
-        return {
-          ...s,
-          [key]: {
-            seen: cur.seen + 1,
-            wrong: cur.wrong + (correct ? 0 : 1),
-            box,
-            due: Date.now() + BOX_INTERVALS[box],
-          },
-        }
-      })
-
-      const queue = correct ? prev.queue : [...prev.queue, wordId]
+      const queue = correct ? session.queue : [...session.queue, wordId]
       const wrongIds =
-        correct || prev.wrongIds.includes(wordId)
-          ? prev.wrongIds
-          : [...prev.wrongIds, wordId]
-      const nextIndex = prev.index + 1
-      return {
-        ...prev,
+        correct || session.wrongIds.includes(wordId)
+          ? session.wrongIds
+          : [...session.wrongIds, wordId]
+      const nextIndex = session.index + 1
+      setSession({
+        ...session,
         queue,
         wrongIds,
-        correct: prev.correct + (correct ? 1 : 0),
-        wrong: prev.wrong + (correct ? 0 : 1),
+        correct: session.correct + (correct ? 1 : 0),
+        wrong: session.wrong + (correct ? 0 : 1),
         index: nextIndex,
         finished: nextIndex >= queue.length,
-      }
-    })
-  }, [])
+      })
+    },
+    [session, stats]
+  )
+
+  const undoAnswer = useCallback(() => {
+    if (!history) return
+    setSession(history.session)
+    setStats(history.stats)
+    setHistory(null)
+  }, [history])
 
   const restartSession = useCallback(() => {
     if (lastOptions) startSession(lastOptions)
   }, [lastOptions, startSession])
+
+  const retryWrong = useCallback(() => {
+    if (lastOptions && session && session.wrongIds.length > 0)
+      startSession({ ...lastOptions, size: 'all', wordIds: session.wrongIds })
+  }, [lastOptions, session, startSession])
 
   const endSession = useCallback(() => setSession(null), [])
 
@@ -416,7 +437,10 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
       session,
       startSession,
       recordAnswer,
+      undoAnswer,
+      canUndo: history !== null,
       restartSession,
+      retryWrong,
       endSession,
       clearLocalData,
     }),
@@ -440,7 +464,10 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
       session,
       startSession,
       recordAnswer,
+      undoAnswer,
+      history,
       restartSession,
+      retryWrong,
       endSession,
       clearLocalData,
     ]

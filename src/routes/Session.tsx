@@ -1,6 +1,6 @@
 import { startTransition } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { Volume2, X } from 'lucide-react'
+import { Undo2, Volume2, X } from 'lucide-react'
 
 import { useFlashcards } from '@/context/FlashcardsContext'
 import { Button } from '@/components/ui/button'
@@ -15,8 +15,17 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
 export default function Session() {
-  const { session, getLevelMeta, getWords, recordAnswer, restartSession, endSession } =
-    useFlashcards()
+  const {
+    session,
+    getLevelMeta,
+    getWords,
+    recordAnswer,
+    undoAnswer,
+    canUndo,
+    restartSession,
+    retryWrong,
+    endSession,
+  } = useFlashcards()
   const navigate = useNavigate()
 
   if (!session) return <Navigate to="/" replace />
@@ -40,6 +49,7 @@ export default function Session() {
         session={session}
         words={words}
         onRestart={restartSession}
+        onRetryWrong={retryWrong}
         onExit={exit}
       />
     )
@@ -67,6 +77,15 @@ export default function Session() {
         <span className="text-muted-foreground text-sm tabular-nums">
           {current}/{total}
         </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={!canUndo}
+          onClick={undoAnswer}
+          aria-label="Deshacer última respuesta"
+        >
+          <Undo2 className="size-4" />
+        </Button>
         {canSpeak && (
           <Button
             variant="ghost"

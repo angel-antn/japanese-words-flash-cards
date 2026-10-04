@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   AlertCircle,
   ArrowLeft,
@@ -54,6 +54,7 @@ const SIZE_OPTIONS: { value: SessionSize; label: string }[] = [
 
 export default function LevelDetail() {
   const { levelId = '' } = useParams()
+  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const {
     getLevelMeta,
@@ -73,7 +74,9 @@ export default function LevelDetail() {
   const [size, setSize] = useState<SessionSize>('all')
   const [orientation, setOrientation] = useState<Orientation>('jp-meaning')
   const [mode, setMode] = useState<StudyMode>('flashcard')
-  const [categories, setCategories] = useState<string[]>([])
+  const [categories, setCategories] = useState<string[]>(() =>
+    searchParams.getAll('cat')
+  )
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<'default' | 'failed' | 'unseen' | 'az'>(
     'default'
@@ -308,7 +311,10 @@ export default function LevelDetail() {
       </Card>
 
       {/* Filter */}
-      <details className="group bg-card text-card-foreground rounded-xl border shadow-sm">
+      <details
+        className="group bg-card text-card-foreground rounded-xl border shadow-sm"
+        open={searchParams.has('cat') || undefined}
+      >
         <summary className="flex cursor-pointer list-none items-center gap-2 px-6 py-4 text-sm font-medium [&::-webkit-details-marker]:hidden">
           <SlidersHorizontal className="size-4" />
           Filtro

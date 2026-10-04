@@ -120,6 +120,8 @@ type FlashcardsContextValue = {
   /** Words in Leitner box 3 or higher. */
   masteredCount: (levelId: string) => number
   streak: number
+  /** YYYY-MM-DD days with at least one answer. */
+  days: string[]
   /** Finished sessions, oldest first. */
   sessions: SessionRecord[]
   // session
@@ -470,6 +472,7 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
       statOf,
       masteredCount,
       streak,
+      days,
       sessions,
       session,
       startSession,
@@ -498,6 +501,7 @@ export function FlashcardsProvider({ children }: { children: ReactNode }) {
       statOf,
       masteredCount,
       streak,
+      days,
       sessions,
       session,
       startSession,

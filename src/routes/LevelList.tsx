@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   AlertCircle,
+  BarChart3,
   ChevronRight,
   Flame,
   Loader2,
@@ -131,6 +132,13 @@ export default function LevelList() {
           })}
         </div>
       )}
+
+      <Button asChild variant="outline" className="w-fit">
+        <Link to="/progress">
+          <BarChart3 className="size-4" />
+          Tu progreso
+        </Link>
+      </Button>
 
       <div className="border-t pt-6">
         <Dialog open={open} onOpenChange={setOpen}>

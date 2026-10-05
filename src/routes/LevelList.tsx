@@ -92,7 +92,7 @@ export default function LevelList() {
                   </div>
                   <CardDescription>{level.description}</CardDescription>
                 </CardHeader>
-                <CardContent className="flex items-center gap-2">
+                <CardContent className="flex flex-wrap items-center gap-1.5">
                   {count > 0 && (
                     <Badge variant="secondary">{count} palabras</Badge>
                   )}

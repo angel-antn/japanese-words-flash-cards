@@ -393,13 +393,14 @@ export default function LevelDetail() {
 
       {/* Selection controls */}
       <div className="flex items-center justify-between gap-2">
-        <span className="text-muted-foreground text-sm">
+        <span className="text-muted-foreground text-sm whitespace-nowrap">
           {visibleSelected} de {visible.length} seleccionadas
         </span>
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           <Button
             variant="outline"
             size="sm"
+            className="h-7 gap-1.5 px-2 text-xs sm:h-8 sm:gap-2 sm:px-3 sm:text-sm"
             onClick={() => selectAll(level.id, visibleIds)}
           >
             <CheckSquare className="size-4" />
@@ -408,6 +409,7 @@ export default function LevelDetail() {
           <Button
             variant="outline"
             size="sm"
+            className="h-7 gap-1.5 px-2 text-xs sm:h-8 sm:gap-2 sm:px-3 sm:text-sm"
             onClick={() => deselectAll(level.id, visibleIds)}
           >
             <Square className="size-4" />

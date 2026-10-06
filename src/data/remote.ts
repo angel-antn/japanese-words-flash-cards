@@ -21,6 +21,17 @@ function cacheKey(url: string) {
   return `jf.cache:${url}`
 }
 
+/** Removes every cached manifest/word list. Progress and stats are untouched. */
+export function clearCache() {
+  try {
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith('jf.cache:'))
+      .forEach((k) => localStorage.removeItem(k))
+  } catch {
+    /* ignore */
+  }
+}
+
 export function readCache<T>(url: string): T | null {
   try {
     const raw = localStorage.getItem(cacheKey(url))
@@ -107,14 +118,19 @@ export async function loadWords(url: string): Promise<Word[]> {
     writeCache(rawUrl, words)
     return words
   } catch (err) {
-    const cached = readCache<Word[]>(rawUrl)
+    const cached = readCachedWords(url)
     if (cached && cached.length > 0) return cached
     throw err
   }
 }
 
+/**
+ * Cached entries may predate the current Word shape (e.g. no `category`),
+ * so they go through the same validation as a fresh download.
+ */
 export function readCachedWords(url: string): Word[] | null {
-  return readCache<Word[]>(toRawGistUrl(url))
+  const cached = readCache<unknown>(toRawGistUrl(url))
+  return cached === null ? null : validateWords(cached)
 }
 
 export function readCachedLevels(): LevelMeta[] | null {

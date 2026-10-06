@@ -1,7 +1,7 @@
-import { Link, Route, Routes } from 'react-router-dom'
-import { Download, Sparkles } from 'lucide-react'
+import { Link, Route, Routes, useLocation } from 'react-router-dom'
+import { Sparkles } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
+import AppMenu from '@/components/AppMenu'
 import LevelList from '@/routes/LevelList'
 import LevelDetail from '@/routes/LevelDetail'
 import Session from '@/routes/Session'
@@ -9,6 +9,7 @@ import InstallGuide from '@/routes/InstallGuide'
 import Progress from '@/routes/Progress'
 
 function App() {
+  const inSession = useLocation().pathname === '/session'
   return (
     <div className="min-h-dvh bg-background text-foreground">
       <header className="border-b">
@@ -19,12 +20,7 @@ function App() {
             </span>
             Japan Flashcards
           </Link>
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/install">
-              <Download className="size-4" />
-              <span className="hidden sm:inline">Instalar</span>
-            </Link>
-          </Button>
+          {!inSession && <AppMenu />}
         </div>
       </header>
       <main className="mx-auto w-full max-w-3xl px-4 py-6">
